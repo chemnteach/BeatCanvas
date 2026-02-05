@@ -66,7 +66,7 @@ TARGET_FPS = 60            # After interpolation
 TARGET_FRAMES = VIDEO_DURATION_SECONDS * TARGET_FPS  # 240 frames for 4s @ 60fps
 
 # RAFT Configuration
-DEFAULT_MOTION_BUCKET_ID = 110  # AKD PIVOT: Reduced from 127 for skeletal stability
+DEFAULT_MOTION_BUCKET_ID = 70  # Reduced from 110 for jitter stability (110 caused 25/25 skeletal violations)
 RAFT_MODEL_SIZE = 'large'       # 'large' for quality, 'small' for speed
 RAFT_ITERATIONS = 32            # AKD PIVOT: Increased from 20 for skeletal precision
 CONSISTENCY_THRESHOLD = 0.18    # RELAXED: Allow rapid limb displacement
@@ -201,7 +201,9 @@ def load_svd_pipeline_with_consistency():
     temporal_svd = TemporalConsistencySVD(
         pipe,
         consistency_threshold=CONSISTENCY_THRESHOLD,
-        skeletal_tolerance=SKELETAL_TOLERANCE
+        skeletal_tolerance=SKELETAL_TOLERANCE,
+        motion_bucket_id=DEFAULT_MOTION_BUCKET_ID,
+        temporal_smoothing=False  # Disabled: causes blur on fast-moving objects
     )
 
     print(f"   ✓ SVD + Temporal Consistency + AKD Skeletal ready")

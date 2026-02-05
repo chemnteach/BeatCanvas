@@ -1,0 +1,59 @@
+---
+session: beatcanvas-jitter-fix
+date: 2026-02-05
+status: partial
+outcome: PARTIAL_PLUS
+---
+
+goal: Fix motion jitter in SVD-XT video generation for punch animation
+now: Test motion_bucket_id=50-60 to address remaining glove malformation
+
+test: pytest tests/test_temporal_consistency.py -v
+
+done_this_session:
+  - task: Created TDD test suite for temporal_consistency module
+    files: [tests/test_temporal_consistency.py]
+  - task: Added configurable motion_bucket_id parameter to TemporalConsistencySVD
+    files: [src/cinematography/temporal_consistency.py]
+  - task: Reduced DEFAULT_MOTION_BUCKET_ID from 110 to 70
+    files: [scripts/render_video_svd.py, library/optics_presets.yaml]
+  - task: Disabled temporal_smoothing (caused blur on fast-moving objects)
+    files: [scripts/render_video_svd.py]
+
+blockers: []
+
+questions:
+  - Is motion_bucket_id=50-60 too conservative for punch motion intensity?
+  - Should skeletal_tolerance be increased from 8% to 25-30% for action content?
+
+decisions:
+  - motion_bucket_70: 110 caused 25/25 skeletal violations (up to 87%), 70 reduced jitter substantially
+  - disable_smoothing: Temporal smoothing caused blur on fast-moving gloves, disabled for now
+  - tdd_approach: User requested TDD - tests written before implementation changes
+
+findings:
+  - jitter_root_cause: motion_bucket_id=110 too aggressive, all SVD frames had skeletal violations
+  - skeletal_tolerance_strict: 8% tolerance too strict for fast motion - getting 52-68% deviations
+  - glove_malformation: Right forearm area shows most deviation, correlates with glove blur/malform
+
+worked:
+  - Reducing motion_bucket_id from 110 to 70 eliminated body/overall jitter
+  - TDD approach caught that YAML preset was overriding Python defaults
+  - Disabling temporal smoothing eliminated glove blur
+
+failed:
+  - Temporal smoothing at motion_bucket_id=110 - frames too inconsistent to smooth
+  - 8% skeletal tolerance - unrealistic for fast action content
+
+next:
+  - Test motion_bucket_id=50-60 to address glove malformation at end
+  - Consider increasing skeletal_tolerance to 25-30% for action presets
+  - Discuss LoRA strategy for better motion control
+
+files:
+  created:
+    - tests/test_temporal_consistency.py
+  modified:
+    - src/cinematography/temporal_consistency.py
+    - scripts/render_video_svd.py
+    - library/optics_presets.yaml

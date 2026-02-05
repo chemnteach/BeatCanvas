@@ -100,7 +100,8 @@ class TemporalConsistencySVD:
         consistency_threshold: float = 0.15,
         skeletal_tolerance: float = 0.10,
         temporal_smoothing: bool = True,
-        smooth_kernel_size: int = 3
+        smooth_kernel_size: int = 3,
+        motion_bucket_id: int = 70
     ):
         """
         Args:
@@ -109,6 +110,8 @@ class TemporalConsistencySVD:
             skeletal_tolerance: Max allowed bone length deviation (0.10 = 10%)
             temporal_smoothing: Enable frame smoothing to reduce jitter (default True)
             smooth_kernel_size: Smoothing kernel size (3, 5, or 7). Higher = more smoothing
+            motion_bucket_id: SVD motion intensity (40-127). Default 70 for stability.
+                             Values > 100 risk jitter and limb implosion.
         """
         self.pipe = svd_pipeline
         self.consistency_threshold = consistency_threshold
@@ -116,6 +119,11 @@ class TemporalConsistencySVD:
         self.skeletal_checker = None  # Initialized when anchor is set
         self.temporal_smoothing = temporal_smoothing
         self.smooth_kernel_size = smooth_kernel_size
+        self.motion_bucket_id = motion_bucket_id
+
+        # Warn about high motion_bucket_id values
+        if motion_bucket_id > 100:
+            print(f"[TemporalConsistency] Warning: motion_bucket_id={motion_bucket_id} > 100 may cause jitter")
 
     def extract_structural_features(self, image):
         """
@@ -156,7 +164,7 @@ class TemporalConsistencySVD:
     def generate_with_consistency(self,
                                   anchor_image,
                                   num_frames=25,
-                                  motion_bucket_id=85,
+                                  motion_bucket_id=None,
                                   fps=7,
                                   noise_aug_strength=0.05,
                                   max_retries=3,
@@ -179,6 +187,10 @@ class TemporalConsistencySVD:
         Returns:
             frames: list of numpy arrays (H, W, 3) BGR with guaranteed consistency
         """
+
+        # Use instance default if motion_bucket_id not specified
+        if motion_bucket_id is None:
+            motion_bucket_id = self.motion_bucket_id
 
         # Initialize skeletal checker with anchor (AKD integration)
         if self.skeletal_checker is None:
