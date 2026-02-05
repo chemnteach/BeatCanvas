@@ -1,0 +1,278 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# PRODUCTION STYLES REGISTRY - Unfiltered Edge Case Specializations
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# RAW. VISCERAL. UNCOMPROMISED.
+#
+# These styles capture the authentic aesthetics of:
+# - Street violence and hood culture
+# - Punk rock anarchy and mosh pit chaos
+# - Explicit anatomical interaction
+#
+# VRAM CONTRACT: All styles must kill() cleanly to <1GB baseline.
+# Deep Purge: unload_lora_weights() + torch.cuda.empty_cache()
+# ═══════════════════════════════════════════════════════════════════════════════
+
+version: "2.0"
+description: "Unfiltered production styles - raw street aesthetic"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STYLE: HARD ACTION - Raw Street Violence
+# ═══════════════════════════════════════════════════════════════════════════════
+# Use Case: Hood violence, gunfights, trap aesthetic
+# Base Model: RealVisXL (photorealistic grit)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+STYLE_HARD_ACTION:
+  display_name: "Hard Action - Street Beef"
+  description: "Raw hood violence, gunfight chaos, visceral documentary grit"
+
+  base_models:
+    - realvis       # Photorealistic street aesthetic
+    - juggernaut    # Alternative realism
+
+  loras:
+    - name: "cinematic_grit_v1"
+      path: "loras/cinematic_grit_v1.safetensors"
+      weight: 1.4
+      trigger: "gritty, raw, documentary, handheld"
+      critical: true
+
+  # UNFILTERED PROMPT INJECTION
+  prompt_prefix: >-
+    (raw street beef:1.3), (gunfight:1.4), visceral bloody splatter,
+    muzzle flash, handheld documentary footage, (hood violence:1.2),
+    gritty trap aesthetic,
+
+  prompt_suffix: ", 35mm film grain, high contrast shadows, raw intensity"
+
+  negative_prompt: >-
+    (sanitized:1.4), clean, cinematic lighting, 3d render, plastic skin,
+    safe, professional photography, studio lighting, polished,
+    corporate, family-friendly, censored
+
+  generation:
+    cfg_scale: 8.0
+    steps: 30
+    sampler: "DPM++ 2M Karras"
+    clip_skip: 2
+
+  vram:
+    estimated_gb: 5.5
+    priority: "high"
+    cleanup_aggressive: true
+    deep_purge: true
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STYLE: PUNK STAGE VIOLENCE - Mosh Pit Anarchy
+# ═══════════════════════════════════════════════════════════════════════════════
+# Use Case: Punk rock shows, mosh pits, stage diving chaos
+# Base Model: RealVisXL
+# ═══════════════════════════════════════════════════════════════════════════════
+
+STYLE_PUNK_STAGE_VIOLENCE:
+  display_name: "Punk Stage Violence"
+  description: "Aggressive mosh pit chaos, punk rock anarchy, sweat-soaked intensity"
+
+  base_models:
+    - realvis
+    - juggernaut
+
+  loras:
+    - name: "cinematic_grit_v1"
+      path: "loras/cinematic_grit_v1.safetensors"
+      weight: 1.2
+      trigger: "gritty, raw, documentary"
+
+    - name: "urban_atmosphere"
+      path: "loras/urban_atmosphere.safetensors"
+      weight: 0.8
+      trigger: "urban, street, underground"
+
+  prompt_prefix: >-
+    (aggressive mosh pit:1.3), punk rock anarchy, (sweat-soaked:1.2),
+    high-contrast stage lighting, gritty 35mm film grain, stage diving,
+    raw intensity, crowd surfing, bloody knuckles,
+
+  prompt_suffix: ", underground venue, DIY aesthetic, chaos energy"
+
+  negative_prompt: >-
+    clean, polished, studio, pop concert, safe, corporate event,
+    sanitized, mainstream, family-friendly, professional photography
+
+  generation:
+    cfg_scale: 7.5
+    steps: 28
+    sampler: "DPM++ 2M Karras"
+    clip_skip: 2
+
+  vram:
+    estimated_gb: 6.0
+    priority: "high"
+    cleanup_aggressive: true
+    deep_purge: true
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STYLE: INTENSE INTERACTION - Raw Anatomical Contact
+# ═══════════════════════════════════════════════════════════════════════════════
+# Use Case: Explicit R/X content with structural integrity
+# Base Models: PonyV6 (preferred), Lustify (anatomy specialist)
+# Critical: Maintain anatomical coherence during high-impact contact
+# ═══════════════════════════════════════════════════════════════════════════════
+
+STYLE_INTENSE_INTERACTION:
+  display_name: "Intense Interaction - Raw Contact"
+  description: "Visceral anatomical contact with structural integrity"
+
+  base_models:
+    - pony          # PonyV6 with score tags
+    - lustify       # Anatomy specialist fallback
+
+  loras:
+    - name: "pony_anatomy_v2"
+      path: "loras/pony_anatomy_v2.safetensors"
+      weight: 1.1
+      trigger: "anatomical detail, body physics"
+      critical: true
+
+  # EXPLICIT UNFILTERED PROMPT - Pony score system + raw descriptors
+  prompt_prefix: >-
+    score_9, score_8_up, (raw visceral sexual contact:1.4),
+    (aggressive grappling:1.3), realistic skin deformation, sweat,
+    (high-impact physics:1.2), anatomical structural integrity,
+    nsfw, nude, nudity, uncensored, explicit content,
+    cleavage, nipples, pussy, ass, fuck, blow job, cock, dick,
+    tits, asshole, titty, areola,
+
+  prompt_suffix: ", detailed skin texture, realistic body contact, raw passion"
+
+  negative_prompt: >-
+    score_4, score_5, (fused limbs:1.4), melting, blurred contact,
+    cartoonish, censorship, censored, safe, clothed,
+    bad anatomy, extra limbs, floating body parts,
+    disconnected limbs, merged bodies, blurry boundaries
+
+  generation:
+    cfg_scale: 8.5    # Higher for anatomy adherence
+    steps: 35         # More steps for anatomical detail
+    sampler: "DPM++ 2M SDE Karras"
+    clip_skip: 1      # Full CLIP for explicit prompts
+
+  # STRICT VRAM ISOLATION - No contamination to subsequent renders
+  vram:
+    estimated_gb: 6.5
+    priority: "critical"
+    cleanup_aggressive: true
+    deep_purge: true
+    isolate_vram: true  # Full flush before next style
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STYLE: URBAN GRIT - Street Noir Aesthetic
+# ═══════════════════════════════════════════════════════════════════════════════
+
+STYLE_URBAN_GRIT:
+  display_name: "Urban Grit"
+  description: "High-contrast street lighting, film grain, volumetric smoke"
+
+  base_models:
+    - realvis
+    - juggernaut
+
+  loras:
+    - name: "cinematic_grit_v1"
+      path: "loras/cinematic_grit_v1.safetensors"
+      weight: 1.0
+      trigger: "noir lighting, high contrast, dramatic shadows"
+
+    - name: "urban_atmosphere"
+      path: "loras/urban_atmosphere.safetensors"
+      weight: 0.9
+      trigger: "urban, street, underground, volumetric"
+
+  prompt_prefix: >-
+    gritty urban scene, cinematic noir, atmospheric haze,
+    high contrast shadows, neon reflections on wet pavement,
+
+  prompt_suffix: ", street photography, film noir aesthetic, raw urban energy"
+
+  negative_prompt: >-
+    clean, sterile, bright, cheerful, cartoon, anime,
+    oversaturated, HDR, overprocessed, digital look,
+    studio lighting, flat lighting, amateur photography
+
+  generation:
+    cfg_scale: 7.0
+    steps: 30
+    sampler: "DPM++ 2M Karras"
+    clip_skip: 2
+
+  vram:
+    estimated_gb: 6.0
+    priority: "normal"
+    cleanup_aggressive: true
+    deep_purge: true
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# VRAM SAFETY RULES - Deep Purge Protocol
+# ═══════════════════════════════════════════════════════════════════════════════
+
+vram_safety:
+  # Maximum LoRAs loaded simultaneously
+  max_lora_stack: 4
+
+  # Baseline after kill() - MUST return to this
+  baseline_gb: 1.0
+
+  # If VRAM > this after kill(), ABORT - contamination detected
+  emergency_threshold_gb: 1.5
+
+  # Deep Purge sequence (executed on every style transition)
+  deep_purge_sequence:
+    - "pipe.unload_lora_weights()"
+    - "del pipe"
+    - "gc.collect()"
+    - "gc.collect()"
+    - "gc.collect()"
+    - "torch.cuda.empty_cache()"
+    - "torch.cuda.synchronize()"
+
+  # Styles requiring full VRAM isolation
+  isolated_styles:
+    - STYLE_INTENSE_INTERACTION
+
+  # Transition rules
+  transitions:
+    # After explicit content, ALWAYS deep purge
+    from_intense_interaction:
+      cleanup: "deep_purge"
+      verify_baseline: true
+      gc_cycles: 3
+      abort_on_contamination: true
+
+    # Violence styles need cleanup but less strict
+    from_hard_action:
+      cleanup: "aggressive"
+      verify_baseline: true
+
+    # Urban to other is safe
+    from_urban_grit:
+      cleanup: "normal"
+      verify_baseline: false
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# LORA INVENTORY - Required Files
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Place these in backend/models/loras/
+#
+# REQUIRED:
+#   - cinematic_grit_v1.safetensors  (street aesthetic)
+#   - urban_atmosphere.safetensors   (noir/atmospheric)
+#   - pony_anatomy_v2.safetensors    (anatomical coherence for Pony)
+#
+# ═══════════════════════════════════════════════════════════════════════════════

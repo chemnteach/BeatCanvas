@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BeatCanvas Enhanced UI - Test Interface</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: #ffffff;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        h1 {
+            color: #4f46e5;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .status {
+            text-align: center;
+            padding: 15px;
+            background: rgba(16, 185, 129, 0.2);
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #10b981;
+        }
+        .test-section {
+            margin: 25px 0;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border-left: 4px solid #4f46e5;
+        }
+        .test-button {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+        }
+        .test-button:disabled {
+            background: #6b7280;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .input-field {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            margin: 10px 0;
+            font-size: 16px;
+        }
+        .input-field::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        .feature-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .feature-list li:before {
+            content: "✅ ";
+            color: #10b981;
+            font-weight: bold;
+        }
+        .error {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid #ef4444;
+            color: #fca5a5;
+        }
+        .success {
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid #10b981;
+            color: #6ee7b7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 BeatCanvas Enhanced UI</h1>
+        <div class="status">
+            <strong>Backend Server:</strong> http://localhost:8002
+            <span id="backend-status">🔄 Checking...</span>
+        </div>
+
+        <div class="test-section">
+            <h2>✨ Enhanced Features Implemented</h2>
+            <ul class="feature-list">
+                <li>Two-level prompt system (content + visual style)</li>
+                <li>AI-powered style suggestions with GPT-4</li>
+                <li>Mandatory storyboard review workflow</li>
+                <li>Reference image uploads (character & background)</li>
+                <li>Real-time progress tracking with cancellation</li>
+                <li>Cost estimation and budget transparency</li>
+                <li>Professional 6-stage workflow progression</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h2>🧪 Test AI Style Suggestions</h2>
+            <p>Enter a creative prompt to get AI-powered style recommendations:</p>
+            <input
+                type="text"
+                id="style-prompt"
+                class="input-field"
+                placeholder="e.g., 'A dancer moving through underwater coral reefs with flowing fabric'"
+                value="A dancer moving through underwater coral reefs with flowing fabric"
+            />
+            <br>
+            <button class="test-button" onclick="testStyleSuggestions()">
+                🎨 Get AI Style Suggestions
+            </button>
+            <div id="style-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>🔍 Test Backend Endpoints</h2>
+            <button class="test-button" onclick="testBackendHealth()">
+                💚 Check Backend Health
+            </button>
+            <button class="test-button" onclick="testEndpoints()">
+                🔗 List All Endpoints
+            </button>
+            <div id="backend-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 Workflow Testing</h2>
+            <p><strong>Next Steps:</strong> Once frontend is fixed, you can test the complete enhanced workflow:</p>
+            <ol style="padding-left: 20px;">
+                <li><strong>Upload:</strong> Audio file with drag-and-drop</li>
+                <li><strong>Prompts:</strong> Content description + AI style suggestions</li>
+                <li><strong>Analysis:</strong> Audio analysis and concept generation</li>
+                <li><strong>Review:</strong> Storyboard approval with cost estimate</li>
+                <li><strong>Generation:</strong> Image generation with progress tracking</li>
+                <li><strong>Complete:</strong> Download and preview final video</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Check backend status on page load
+        window.onload = function() {
+            testBackendHealth();
+        };
+
+        async function testBackendHealth() {
+            const statusEl = document.getElementById('backend-status');
+            const resultEl = document.getElementById('backend-result');
+
+            try {
+                console.log('Testing backend health...');
+                const response = await fetch('http://localhost:8002/api/status', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'no-cache'
+                    }
+                });
+                console.log('Response status:', response.status);
+
+                const data = await response.json();
+                console.log('Response data:', data);
+
+                if (data.version === 'fresh-enhanced-endpoints') {
+                    statusEl.innerHTML = '✅ Online (Enhanced)';
+                    statusEl.style.color = '#10b981';
+                    showResult(resultEl, JSON.stringify(data, null, 2), 'success');
+                } else {
+                    statusEl.innerHTML = '⚠️ Old Version - ' + JSON.stringify(data);
+                    statusEl.style.color = '#f59e0b';
+                    showResult(resultEl, JSON.stringify(data, null, 2), 'warning');
+                }
+            } catch (error) {
+                console.error('Backend health check failed:', error);
+                statusEl.innerHTML = '❌ Offline';
+                statusEl.style.color = '#ef4444';
+                showResult(resultEl, 'Error: ' + error.message, 'error');
+            }
+        }
+
+        async function testStyleSuggestions() {
+            const prompt = document.getElementById('style-prompt').value;
+            const resultEl = document.getElementById('style-result');
+
+            if (!prompt.trim()) {
+                showResult(resultEl, 'Please enter a creative prompt first!', 'error');
+                return;
+            }
+
+            showResult(resultEl, 'Generating AI style suggestions...', '');
+
+            try {
+                const response = await fetch('http://localhost:8002/api/style-suggestions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content_prompt: prompt
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.suggestions && Array.isArray(data.suggestions)) {
+                    const formatted = `🎨 AI Style Suggestions for: "${prompt}"
+
+${data.suggestions.map((style, i) => `${i + 1}. ${style}`).join('\n')}
+
+Status: ${data.status}
+${data.note ? '\nNote: ' + data.note : ''}`;
+                    showResult(resultEl, formatted, 'success');
+                } else {
+                    showResult(resultEl, 'Unexpected response: ' + JSON.stringify(data, null, 2), 'error');
+                }
+            } catch (error) {
+                showResult(resultEl, 'Error testing style suggestions: ' + error.message, 'error');
+            }
+        }
+
+        async function testEndpoints() {
+            const resultEl = document.getElementById('backend-result');
+
+            showResult(resultEl, 'Fetching available endpoints...', '');
+
+            try {
+                const response = await fetch('http://localhost:8002/debug/routes');
+                const data = await response.json();
+
+                const formatted = `🔗 Available Endpoints (${data.total} total):
+
+${data.routes.map(route => `${Array.from(route.methods || ['GET']).join(', ')} ${route.path}`).join('\n')}`;
+
+                showResult(resultEl, formatted, 'success');
+            } catch (error) {
+                showResult(resultEl, 'Error fetching endpoints: ' + error.message, 'error');
+            }
+        }
+
+        function showResult(element, text, type = '') {
+            element.style.display = 'block';
+            element.textContent = text;
+            element.className = 'result';
+            if (type) {
+                element.classList.add(type);
+            }
+        }
+    </script>
+</body>
+</html>

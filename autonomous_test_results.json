@@ -1,0 +1,70 @@
+{
+  "session_info": {
+    "start_time": 1769287355.0019596,
+    "end_time": 1769287358.6319513,
+    "duration_seconds": 3.6299922466278076
+  },
+  "summary": {
+    "total_tests": 27,
+    "passed_tests": 27,
+    "failed_tests": 0,
+    "success_rate_percent": 100.0
+  },
+  "detailed_results": {
+    "component_verification": {
+      "frontend/src/components/InteractiveTimeline.tsx": true,
+      "frontend/src/components/SceneEditModal.tsx": true,
+      "frontend/src/components/VideoPreview.tsx": true,
+      "frontend/src/components/CulturalContentSettings.tsx": true,
+      "frontend/src/components/CulturalProcessingModal.tsx": true,
+      "backend/src/content/cultural_processor.py": true,
+      "backend/main.py": true
+    },
+    "backend_integration": {
+      "/api/regenerate-scene": true,
+      "/api/rebuild-video": true,
+      "/api/analyze-cultural-content": true,
+      "/api/process-cultural-content": true,
+      "/api/approve-cultural-modifications": true
+    },
+    "frontend_integration": {
+      "InteractiveTimeline": true,
+      "handleSeek": true,
+      "onSceneEdit": true,
+      "videoDuration": true,
+      "currentTime": true
+    },
+    "cultural_processing": {
+      "european_standard": true,
+      "american_standard": true,
+      "conservative_standard": true
+    },
+    "timeline_interfaces": {
+      "StoryboardScene": true,
+      "TimelineProps": true,
+      "timestamp_start": true,
+      "timestamp_end": true,
+      "onSeek": true,
+      "onSceneEdit": true
+    },
+    "dependencies": {
+      "python_deps": {
+        "opencv-python": false,
+        "pillow": false,
+        "numpy": true
+      },
+      "frontend_package_json": true
+    }
+  },
+  "recommendations": [
+    {
+      "category": "Missing Python Dependencies",
+      "severity": "MEDIUM",
+      "items": [
+        "opencv-python",
+        "pillow"
+      ],
+      "action": "Install with: pip install opencv-python pillow"
+    }
+  ]
+}

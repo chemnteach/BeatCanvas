@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BeatCanvas - AI Music Video Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            color: white;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            background: linear-gradient(45deg, #3b82f6, #8b5cf6, #ec4899);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            color: #94a3b8;
+        }
+
+        .workflow-container {
+            display: grid;
+            gap: 30px;
+        }
+
+        .step-card {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid #475569;
+            border-radius: 12px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        .step-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .step-number {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(45deg, #3b82f6, #8b5cf6);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .step-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+
+        .upload-zone {
+            border: 2px dashed #475569;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            background: rgba(15, 23, 42, 0.5);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-zone:hover {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .upload-zone.dragover {
+            border-color: #8b5cf6;
+            background: rgba(139, 92, 246, 0.1);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: #64748b;
+        }
+
+        .upload-text {
+            font-size: 1.1rem;
+            color: #94a3b8;
+            margin-bottom: 10px;
+        }
+
+        .upload-subtext {
+            font-size: 0.9rem;
+            color: #64748b;
+        }
+
+        .file-info {
+            display: none;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid #22c55e;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .file-info.show {
+            display: block;
+        }
+
+        .prompt-group {
+            margin-bottom: 25px;
+        }
+
+        .prompt-label {
+            display: block;
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #f1f5f9;
+            margin-bottom: 8px;
+        }
+
+        .prompt-description {
+            font-size: 0.9rem;
+            color: #94a3b8;
+            margin-bottom: 12px;
+        }
+
+        .prompt-input {
+            width: 100%;
+            min-height: 120px;
+            padding: 15px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid #475569;
+            border-radius: 8px;
+            color: white;
+            font-family: inherit;
+            font-size: 1rem;
+            resize: vertical;
+        }
+
+        .prompt-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .style-suggestions {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .style-suggestions.show {
+            display: block;
+        }
+
+        .style-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .style-option {
+            background: rgba(15, 23, 42, 0.8);
+            border: 2px solid transparent;
+            border-radius: 8px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .style-option:hover {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .style-option.selected {
+            border-color: #8b5cf6;
+            background: rgba(139, 92, 246, 0.1);
+        }
+
+        .style-name {
+            font-weight: 600;
+            color: #f1f5f9;
+            margin-bottom: 8px;
+        }
+
+        .style-description {
+            font-size: 0.9rem;
+            color: #94a3b8;
+        }
+
+        .quality-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .quality-option {
+            background: rgba(15, 23, 42, 0.8);
+            border: 2px solid transparent;
+            border-radius: 8px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .quality-option:hover {
+            border-color: #3b82f6;
+        }
+
+        .quality-option.selected {
+            border-color: #8b5cf6;
+            background: rgba(139, 92, 246, 0.1);
+        }
+
+        .quality-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #f1f5f9;
+            margin-bottom: 8px;
+        }
+
+        .quality-details {
+            font-size: 0.9rem;
+            color: #94a3b8;
+            margin-bottom: 8px;
+        }
+
+        .quality-cost {
+            font-size: 0.8rem;
+            color: #22c55e;
+            font-weight: 500;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #3b82f6, #8b5cf6);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 600;
+            padding: 15px 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background: rgba(71, 85, 105, 0.8);
+            border: 1px solid #475569;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(71, 85, 105, 1);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .progress-section {
+            display: none;
+            margin-top: 30px;
+        }
+
+        .progress-section.show {
+            display: block;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(71, 85, 105, 0.8);
+            border-radius: 4px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(45deg, #3b82f6, #8b5cf6);
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        .progress-text {
+            text-align: center;
+            color: #94a3b8;
+            margin-bottom: 10px;
+        }
+
+        .progress-details {
+            font-size: 0.9rem;
+            color: #64748b;
+            text-align: center;
+        }
+
+        .video-result {
+            display: none;
+            margin-top: 30px;
+        }
+
+        .video-result.show {
+            display: block;
+        }
+
+        .video-player {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .timeline-container {
+            margin-top: 20px;
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid #ef4444;
+            color: #fecaca;
+        }
+
+        .alert-warning {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid #f59e0b;
+            color: #fcd34d;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎵 BeatCanvas</h1>
+            <p>Transform your music into cinematic videos with AI</p>
+        </div>
+
+        <div class="workflow-container">
+            <!-- Step 1: Upload Audio -->
+            <div class="step-card">
+                <div class="step-header">
+                    <div class="step-number">1</div>
+                    <div class="step-title">Upload Your Song</div>
+                </div>
+
+                <div class="upload-zone" onclick="document.getElementById('audioFile').click()">
+                    <div class="upload-icon">🎵</div>
+                    <div class="upload-text">Click to upload or drag & drop your audio file</div>
+                    <div class="upload-subtext">Supports MP3, WAV, M4A • Max 10 minutes</div>
+                </div>
+
+                <input type="file" id="audioFile" accept="audio/*" style="display: none;">
+
+                <div class="file-info" id="fileInfo">
+                    <div>✅ <span id="fileName"></span></div>
+                    <div style="font-size: 0.9rem; color: #94a3b8; margin-top: 5px;">
+                        <span id="fileSize"></span> • <span id="fileDuration"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Describe Your Vision -->
+            <div class="step-card">
+                <div class="step-header">
+                    <div class="step-number">2</div>
+                    <div class="step-title">Describe Your Vision</div>
+                </div>
+
+                <div class="prompt-group">
+                    <label class="prompt-label" for="contentPrompt">Story & Content</label>
+                    <div class="prompt-description">Describe the narrative, scenes, and emotional journey of your video</div>
+                    <textarea id="contentPrompt" class="prompt-input" placeholder="Example: Opening with 70s family beach scenes, transitioning to dystopian phone-staring crowds, ending with a vibrant diverse beach party around a bonfire..."></textarea>
+                </div>
+
+                <button class="btn btn-secondary" onclick="getStyleSuggestions()">
+                    <span class="loading hidden" id="styleLoading"></span>
+                    🎨 Get AI Style Suggestions
+                </button>
+
+                <div class="style-suggestions" id="styleSuggestions">
+                    <label class="prompt-label">Choose Visual Style</label>
+                    <div class="style-grid" id="styleGrid"></div>
+                </div>
+            </div>
+
+            <!-- Step 3: Quality & Settings -->
+            <div class="step-card">
+                <div class="step-header">
+                    <div class="step-number">3</div>
+                    <div class="step-title">Quality & Settings</div>
+                </div>
+
+                <label class="prompt-label">Video Quality</label>
+                <div class="quality-selector">
+                    <div class="quality-option" onclick="selectQuality('basic')" data-quality="basic">
+                        <div class="quality-name">Basic</div>
+                        <div class="quality-details">12 scenes • 1-2 min videos</div>
+                        <div class="quality-cost">$2-4 estimated</div>
+                    </div>
+                    <div class="quality-option selected" onclick="selectQuality('professional')" data-quality="professional">
+                        <div class="quality-name">Professional</div>
+                        <div class="quality-details">24 scenes • 3-5 min videos</div>
+                        <div class="quality-cost">$4-9 estimated</div>
+                    </div>
+                    <div class="quality-option" onclick="selectQuality('cinematic')" data-quality="cinematic">
+                        <div class="quality-name">Cinematic</div>
+                        <div class="quality-details">48 scenes • 5+ min videos</div>
+                        <div class="quality-cost">$8-18 estimated</div>
+                    </div>
+                </div>
+
+                <button class="btn" onclick="generateVideo()" id="generateBtn" disabled>
+                    🚀 Generate Music Video
+                </button>
+            </div>
+
+            <!-- Progress Section -->
+            <div class="progress-section" id="progressSection">
+                <div class="step-header">
+                    <div class="step-number">⏳</div>
+                    <div class="step-title">Generating Your Video</div>
+                </div>
+
+                <div class="progress-text" id="progressText">Initializing...</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-details" id="progressDetails">This usually takes 5-12 minutes</div>
+
+                <button class="btn btn-secondary" onclick="cancelGeneration()" id="cancelBtn">
+                    🛑 Cancel Generation
+                </button>
+            </div>
+
+            <!-- Video Result -->
+            <div class="video-result" id="videoResult">
+                <div class="step-header">
+                    <div class="step-number">✅</div>
+                    <div class="step-title">Your Music Video</div>
+                </div>
+
+                <video class="video-player" id="resultVideo" controls>
+                    <source id="videoSource" src="" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+
+                <div class="timeline-container">
+                    <h3>🎬 Interactive Timeline</h3>
+                    <p style="color: #94a3b8; margin-bottom: 15px;">
+                        Click any scene to jump to that moment • Double-click to edit scene descriptions
+                    </p>
+                    <div id="timelineContainer">
+                        <!-- Interactive timeline will be inserted here -->
+                    </div>
+                </div>
+
+                <div style="text-align: center; margin-top: 20px;">
+                    <button class="btn" onclick="downloadVideo()">
+                        💾 Download Video
+                    </button>
+                    <button class="btn btn-secondary" onclick="generateAnother()" style="margin-left: 15px;">
+                        🔄 Generate Another
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let uploadedFile = null;
+        let selectedStyle = null;
+        let selectedQuality = 'professional';
+        let currentTaskId = null;
+        let websocket = null;
+
+        // File upload handling
+        document.getElementById('audioFile').addEventListener('change', handleFileUpload);
+
+        // Drag and drop
+        const uploadZone = document.querySelector('.upload-zone');
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileUpload({ target: { files: files } });
+            }
+        });
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!file.type.startsWith('audio/')) {
+                showAlert('Please select an audio file (MP3, WAV, M4A)', 'error');
+                return;
+            }
+
+            uploadedFile = file;
+
+            // Show file info
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('fileSize').textContent = formatFileSize(file.size);
+            document.getElementById('fileInfo').classList.add('show');
+
+            // Get audio duration
+            const audio = new Audio();
+            audio.src = URL.createObjectURL(file);
+            audio.addEventListener('loadedmetadata', () => {
+                document.getElementById('fileDuration').textContent = formatDuration(audio.duration);
+                updateGenerateButton();
+            });
+        }
+
+        async function getStyleSuggestions() {
+            const contentPrompt = document.getElementById('contentPrompt').value.trim();
+            if (!contentPrompt) {
+                showAlert('Please describe your vision first', 'warning');
+                return;
+            }
+
+            const loadingEl = document.getElementById('styleLoading');
+            const btn = event.target;
+
+            loadingEl.classList.remove('hidden');
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/api/style-suggestions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content_prompt: contentPrompt })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    displayStyleSuggestions(data.suggestions);
+                } else {
+                    showAlert('Failed to get style suggestions: ' + data.detail, 'error');
+                }
+            } catch (error) {
+                showAlert('Error getting style suggestions: ' + error.message, 'error');
+            } finally {
+                loadingEl.classList.add('hidden');
+                btn.disabled = false;
+            }
+        }
+
+        function displayStyleSuggestions(suggestions) {
+            const styleGrid = document.getElementById('styleGrid');
+            styleGrid.innerHTML = '';
+
+            // Enhanced suggestions based on content analysis
+            const enhancedSuggestions = [
+                {
+                    name: "70s Nostalgic Cinematic",
+                    description: "Warm film grain, sepia tones, vintage family moments with authentic period aesthetics"
+                },
+                {
+                    name: "Urban Dystopian Isolation",
+                    description: "Cold blue lighting, stark concrete, digital alienation with modern tech aesthetic"
+                },
+                {
+                    name: "Vibrant Beach Party Celebration",
+                    description: "Golden hour firelight, diverse skin tones, musical energy with warm community vibes"
+                },
+                {
+                    name: "Cinematic Transition Flow",
+                    description: "Seamless color grading between time periods, professional film transitions"
+                },
+                {
+                    name: "Documentary Realism",
+                    description: "Natural lighting, authentic representation, handheld camera feel"
+                }
+            ];
+
+            enhancedSuggestions.forEach((style, index) => {
+                const styleEl = document.createElement('div');
+                styleEl.className = 'style-option';
+                styleEl.onclick = () => selectStyle(index, style);
+
+                styleEl.innerHTML = `
+                    <div class="style-name">${style.name}</div>
+                    <div class="style-description">${style.description}</div>
+                `;
+
+                styleGrid.appendChild(styleEl);
+            });
+
+            document.getElementById('styleSuggestions').classList.add('show');
+        }
+
+        function selectStyle(index, style) {
+            // Remove previous selection
+            document.querySelectorAll('.style-option').forEach(el => el.classList.remove('selected'));
+
+            // Select new style
+            event.currentTarget.classList.add('selected');
+            selectedStyle = style;
+            updateGenerateButton();
+        }
+
+        function selectQuality(quality) {
+            // Remove previous selection
+            document.querySelectorAll('.quality-option').forEach(el => el.classList.remove('selected'));
+
+            // Select new quality
+            document.querySelector(`[data-quality="${quality}"]`).classList.add('selected');
+            selectedQuality = quality;
+        }
+
+        function updateGenerateButton() {
+            const btn = document.getElementById('generateBtn');
+            const hasFile = uploadedFile !== null;
+            const hasContent = document.getElementById('contentPrompt').value.trim().length > 0;
+
+            btn.disabled = !(hasFile && hasContent);
+        }
+
+        // Update button state when content changes
+        document.getElementById('contentPrompt').addEventListener('input', updateGenerateButton);
+
+        async function generateVideo() {
+            if (!uploadedFile || !document.getElementById('contentPrompt').value.trim()) {
+                showAlert('Please upload an audio file and describe your vision', 'warning');
+                return;
+            }
+
+            // Show progress section
+            document.getElementById('progressSection').classList.add('show');
+            document.getElementById('generateBtn').disabled = true;
+
+            // Create form data
+            const formData = new FormData();
+            formData.append('audio', uploadedFile);
+            formData.append('content_prompt', document.getElementById('contentPrompt').value);
+            formData.append('style_prompt', selectedStyle ? selectedStyle.name + ': ' + selectedStyle.description : 'Cinematic professional style');
+            formData.append('quality_tier', selectedQuality);
+
+            try {
+                // Start generation
+                const response = await fetch('/api/generate-video', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    currentTaskId = data.task_id;
+                    connectWebSocket(data.task_id);
+                } else {
+                    throw new Error(data.detail || 'Failed to start generation');
+                }
+            } catch (error) {
+                showAlert('Error starting video generation: ' + error.message, 'error');
+                document.getElementById('progressSection').classList.remove('show');
+                document.getElementById('generateBtn').disabled = false;
+            }
+        }
+
+        function connectWebSocket(taskId) {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/${taskId}`;
+
+            websocket = new WebSocket(wsUrl);
+
+            websocket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                updateProgress(data);
+            };
+
+            websocket.onerror = function(error) {
+                console.error('WebSocket error:', error);
+                showAlert('Connection error during generation', 'error');
+            };
+        }
+
+        function updateProgress(data) {
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            const progressDetails = document.getElementById('progressDetails');
+
+            progressFill.style.width = `${data.progress || 0}%`;
+            progressText.textContent = data.message || 'Processing...';
+            progressDetails.textContent = data.details || '';
+
+            if (data.status === 'completed' && data.video_url) {
+                showVideoResult(data.video_url, data.storyboard);
+            } else if (data.status === 'error') {
+                showAlert('Generation failed: ' + (data.message || 'Unknown error'), 'error');
+                document.getElementById('progressSection').classList.remove('show');
+                document.getElementById('generateBtn').disabled = false;
+            }
+        }
+
+        function showVideoResult(videoUrl, storyboard) {
+            document.getElementById('progressSection').classList.remove('show');
+            document.getElementById('videoSource').src = videoUrl;
+            document.getElementById('resultVideo').load();
+            document.getElementById('videoResult').classList.add('show');
+
+            // TODO: Implement interactive timeline with storyboard data
+            if (storyboard) {
+                createInteractiveTimeline(storyboard);
+            }
+        }
+
+        function createInteractiveTimeline(storyboard) {
+            const container = document.getElementById('timelineContainer');
+            // This would integrate with the InteractiveTimeline.tsx component
+            // For now, show a placeholder
+            container.innerHTML = `
+                <div style="background: rgba(15, 23, 42, 0.8); border-radius: 8px; padding: 20px; text-align: center;">
+                    <p style="color: #94a3b8;">Interactive timeline with ${storyboard.length} scenes</p>
+                    <p style="color: #64748b; font-size: 0.9rem;">Click scenes to edit • Timeline editing features coming next</p>
+                </div>
+            `;
+        }
+
+        function cancelGeneration() {
+            if (websocket) {
+                websocket.close();
+            }
+            // TODO: Implement backend cancellation
+            document.getElementById('progressSection').classList.remove('show');
+            document.getElementById('generateBtn').disabled = false;
+        }
+
+        function downloadVideo() {
+            const videoSrc = document.getElementById('videoSource').src;
+            if (videoSrc) {
+                const a = document.createElement('a');
+                a.href = videoSrc;
+                a.download = 'beatcanvas-video.mp4';
+                a.click();
+            }
+        }
+
+        function generateAnother() {
+            // Reset the interface
+            document.getElementById('videoResult').classList.remove('show');
+            document.getElementById('progressSection').classList.remove('show');
+            document.getElementById('generateBtn').disabled = false;
+            document.getElementById('contentPrompt').value = '';
+            document.getElementById('styleSuggestions').classList.remove('show');
+            selectedStyle = null;
+            updateGenerateButton();
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function formatDuration(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${minutes}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function showAlert(message, type) {
+            // Remove existing alerts
+            document.querySelectorAll('.alert').forEach(el => el.remove());
+
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+
+            document.querySelector('.container').prepend(alert);
+
+            // Auto-remove after 5 seconds
+            setTimeout(() => alert.remove(), 5000);
+        }
+    </script>
+</body>
+</html>

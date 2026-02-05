@@ -1,0 +1,100 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# CHECKPOINT REGISTRY - Model Standards for BeatCanvas Production
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# VRAM Budget: 12GB (Acer Predator)
+# Rule: Only ONE model loaded at a time. Kill before swap.
+#
+# Each standard has:
+#   - path: Absolute path to .safetensors file
+#   - description: Semantic description for routing
+#   - trigger_tags: Required prompt prefixes (for PONY, LIGHTNING, etc.)
+#   - scheduler: Required scheduler override (for LIGHTNING)
+#   - vram_estimate_gb: Approximate VRAM footprint when loaded
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# --- PRIMARY STANDARDS ---
+
+STANDARD_US:
+  # General-purpose photorealism - the workhorse
+  path: "/home/craig/AI_Workspace/synterra/models/Juggernaut-XL-v9.safetensors"
+  description: >
+    Best for photorealism, cinematic footage, real humans, complex lighting,
+    4k video, photography, and detailed textures.
+    Use when the user wants something that looks like a camera captured it.
+  trigger_tags: null
+  scheduler: null
+  vram_estimate_gb: 6.5
+  enabled: true
+
+STANDARD_CINEMATIC:
+  # High-fidelity cinematic scenes
+  path: "/home/craig/AI_Workspace/synterra/beatcanvas/backend/models/RealVisXL_V5.0_fp16.safetensors"
+  description: >
+    Cinematic quality, film grain, dramatic lighting, movie stills,
+    professional photography, fashion shoots.
+    Use for high-end visual production.
+  trigger_tags: null
+  scheduler: null
+  vram_estimate_gb: 6.5
+  enabled: true
+
+STANDARD_ANATOMY:
+  # Full-body artistic anatomy
+  path: "/home/craig/AI_Workspace/synterra/beatcanvas/backend/models/lustify_v2.safetensors"
+  description: >
+    Full-body anatomy, artistic nudes, figure drawing, classical art,
+    naturist contexts, body-positive imagery.
+    Use for anatomically accurate full-body generation.
+  trigger_tags: null
+  scheduler: null
+  vram_estimate_gb: 4.8
+  # This model needs all base components from SDXL base (UNet + text encoders)
+  requires_base_components_from: "stabilityai/stable-diffusion-xl-base-1.0"
+  enabled: true
+
+STANDARD_ACTION:
+  # Pony Diffusion for dynamic poses and action
+  path: "/home/craig/AI_Workspace/synterra/beatcanvas/backend/models/ponyDiffusionV6XL_v6StartWithThisOne.safetensors"
+  description: >
+    Dynamic poses, action shots, anime-influenced, expressive characters,
+    vibrant colors, stylized art.
+    Use for high-energy, stylized content.
+  trigger_tags: "score_9, score_8_up, score_7_up"
+  scheduler: null
+  vram_estimate_gb: 6.5
+  enabled: true
+
+STANDARD_DRAFT:
+  # Lightning-fast 4-step generation for previews
+  path: "/home/craig/AI_Workspace/synterra/beatcanvas/backend/models/sdxl_lightning_4step.safetensors"
+  description: >
+    Ultra-fast 4-step generation, quick previews, draft iterations,
+    concept exploration, rapid prototyping.
+    Use when speed matters more than perfection.
+  trigger_tags: null
+  scheduler: "DPMSolverMultistepScheduler"
+  scheduler_config:
+    num_train_timesteps: 1000
+    beta_start: 0.00085
+    beta_end: 0.012
+    algorithm_type: "dpmsolver++"
+    use_karras_sigmas: true
+  num_inference_steps: 4
+  guidance_scale: 1.0
+  vram_estimate_gb: 6.5
+  enabled: true
+
+# --- LEGACY ALIASES (for backward compatibility) ---
+
+base:
+  alias_of: "STANDARD_US"
+  path: "/home/craig/AI_Workspace/synterra/models/Juggernaut-XL-v9.safetensors"
+  description: "Legacy alias for STANDARD_US"
+  enabled: true
+
+photoreal:
+  alias_of: "STANDARD_US"
+  path: "/home/craig/AI_Workspace/synterra/models/Juggernaut-XL-v9.safetensors"
+  description: "Legacy alias for STANDARD_US"
+  enabled: true

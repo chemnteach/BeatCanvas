@@ -1,0 +1,16 @@
+# Prototype Engine Dependencies
+# For local GPU-based AI video generation (Flux + LTX-Video)
+#
+# IMPORTANT: Install PyTorch with CUDA first based on your CUDA version:
+# CUDA 12.1: pip install torch --index-url https://download.pytorch.org/whl/cu121
+# CUDA 11.8: pip install torch --index-url https://download.pytorch.org/whl/cu118
+#
+# Then install these:
+# pip install -r requirements_prototype.txt
+
+torch>=2.1.0
+diffusers>=0.32.0
+transformers>=4.40.0
+sentencepiece>=0.2.0
+accelerate>=1.0.0
+pillow>=10.1.0

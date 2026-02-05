@@ -1,0 +1,34 @@
+# --- BEATCANVAS LORA REGISTRY ---
+# The Director (Phi-3) reads this file to know what tools are available.
+# To add a new LoRA, just add a block here. No coding required.
+
+cinema:
+  description: "Film-quality lighting, lens effects, depth of field"
+  triggers: ["dramatic", "epic", "movie", "widescreen", "anamorphic", "bokeh"]
+  default_weight: 0.8
+  enabled: true
+
+night:
+  description: "Dark environments, neon lighting, urban night scenes"
+  triggers: ["night", "neon", "club", "concert", "cyberpunk", "rain", "dark"]
+  default_weight: 0.7
+  enabled: true
+
+detail:
+  description: "Extreme detail, skin texture, fabric weave, close-ups"
+  triggers: ["close-up", "portrait", "texture", "detail", "macro", "realism"]
+  default_weight: 0.6
+  enabled: true
+
+# --- Placeholders (Enabled=False until you download them) ---
+dreamy:
+  description: "Soft focus, ethereal glow, pastel tones, romantic"
+  triggers: ["dream", "soft", "ethereal", "fantasy"]
+  default_weight: 0.7
+  enabled: false
+
+gritty:
+  description: "Film grain, desaturated, raw, documentary feel"
+  triggers: ["raw", "grain", "documentary", "rough"]
+  default_weight: 0.6
+  enabled: false

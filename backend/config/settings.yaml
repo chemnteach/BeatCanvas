@@ -1,0 +1,91 @@
+paths:
+  output_dir: "output"
+  lora_dir: "loras"
+
+models:
+  # The Default (Safe for everything)
+  base: "stabilityai/stable-diffusion-xl-base-1.0"
+
+  # The Specialist (Photorealism)
+  photoreal: "/home/craig/AI_Workspace/synterra/models/Juggernaut-XL-v9.safetensors"
+
+generation:
+  steps: 30
+  guidance_scale: 7.5
+  width: 1024
+  height: 576
+
+  # Anti-portrait bias: forces full-body framing
+  negative_prompt: "crop, headshot, portrait, close-up, cut off feet, cropped legs, partial body"
+
+  # Resolution profiles
+  profiles:
+    landscape_16_9:
+      width: 1024
+      height: 576
+      description: "16:9 cinematic widescreen"
+
+    portrait_full_body:
+      width: 576
+      height: 1024
+      description: "9:16 full-body portrait (vertical video)"
+
+    square:
+      width: 1024
+      height: 1024
+      description: "1:1 square format"
+
+    sdxl_native:
+      width: 1024
+      height: 1024
+      description: "SDXL native resolution"
+
+# Stable Video Diffusion (SVD) configuration
+svd:
+  model_id: "stabilityai/stable-video-diffusion-img2vid-xt"
+
+  # Frame dimensions (must be supported by SVD model)
+  resolution:
+    width: 1024
+    height: 576
+
+  # SVD resolution profiles (SVD only supports 1024x576 or 576x1024)
+  profiles:
+    landscape:
+      width: 1024
+      height: 576
+      description: "16:9 horizontal video"
+
+    portrait_full_body:
+      width: 576
+      height: 1024
+      description: "9:16 vertical full-body video"
+
+  # Default generation parameters
+  defaults:
+    num_inference_steps: 25
+    motion_bucket_id: 127
+    noise_aug_strength: 0.1
+    fps: 8
+
+  # VRAM-based decode_chunk_size thresholds (GB free -> chunk size)
+  # Smaller chunks = less VRAM but slower decode
+  vram_thresholds:
+    high: 10      # >= 10GB free -> chunk_size 8
+    medium: 6     # >= 6GB free  -> chunk_size 4
+    low: 3        # >= 3GB free  -> chunk_size 2
+    # Below 3GB   -> chunk_size 1 (ultra-safe)
+
+  # Video encoding quality (H.264 CRF: 0=lossless, 23=default, 51=worst)
+  encoding:
+    crf: 17       # High quality, reasonable file size
+    preset: "slow"  # slow/medium/fast - slower = better compression
+
+motion_smoothing:
+  engine: "rife"
+  interpolation_factor: 4    # 25 frames -> 100 frames
+  fps_target: 60
+  vulkan_device: 0           # Targets your Predator NVIDIA GPU
+  loop_blend_frames: 3       # Smooths the jump between end and start
+  output_format: "mp4"
+  quality_crf: 17            # High-fidelity matches SVD

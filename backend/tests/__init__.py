@@ -1,0 +1,1 @@
+"""BeatCanvas test suite."""

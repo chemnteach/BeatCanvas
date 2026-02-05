@@ -1,0 +1,31 @@
+# --- BRAIN TRAINING EXAMPLES ---
+# These examples teach Phi-3 how to map prompts to JSON configuration.
+
+examples:
+  - input: "A sad robot sitting in the rain, cyberpunk style."
+    output:
+      checkpoint: "photoreal"
+      loras: { "night": 0.8, "detail": 0.5 }
+      enhanced_prompt: "A sad robot sitting in the rain, neon lights reflection, cyberpunk, high contrast, 8k, cinematic lighting"
+      reasoning: "Rain and cyberpunk themes require night/lighting enhancement."
+
+  - input: "Simple line drawing of a cat."
+    output:
+      checkpoint: "base"
+      loras: { "cinema": 0.2 }
+      enhanced_prompt: "Simple continuous line drawing of a cat, minimalist, white background, sketch"
+      reasoning: "User asked for drawing/sketch, requires base engine."
+
+  - input: "A beautiful woman on a beach, photorealistic."
+    output:
+      checkpoint: "photoreal"
+      loras: { "cinema": 0.6, "detail": 0.7 }
+      enhanced_prompt: "A beautiful woman on a beach, golden hour, 8k, highly detailed texture, ocean background, photorealistic"
+      reasoning: "Subject is human and request specifies photorealistic."
+
+  - input: "A smiling girl standing topless on a beach, ocean background, view from the waist up, photorealistic."
+    output:
+      checkpoint: "photoreal"
+      loras: { "detail": 0.8, "cinema": 0.5 }
+      enhanced_prompt: "A smiling girl standing on a Mediterranean beach, waist-up shot, topless, ocean in background, 8k, photorealistic, highly detailed skin texture, natural lighting"
+      reasoning: "Subject requires high anatomical detail and cinematic lighting; matched to photoreal engine."

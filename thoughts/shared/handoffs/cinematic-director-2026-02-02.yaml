@@ -1,0 +1,158 @@
+---
+date: 2026-02-02
+type: implementation
+status: complete
+session_id: cinematic-director-loop
+---
+
+# Cinematic Director Loop - Implementation Complete
+
+## Goal
+Implement stable SVD video generation with RIFE motion smoothing and Windows handoff.
+
+## What Was Done
+
+### 1. OOM Prevention (video_generator.py)
+- Added `get_vram_safe_decode_chunk_size()` - dynamically selects chunk size based on free VRAM
+- Added OOM recovery: catches OutOfMemoryError, halves chunk size, retries
+- Added `torch.cuda.empty_cache()` before heavy operations
+
+### 2. JSON Heartbeat Monitoring (video_generator.py)
+- Added `HeartbeatCallback` class for step-by-step denoising progress
+- Added `_emit_heartbeat()` method for all phases (init, vram, generate, stitch, etc.)
+- Emits JSON to stdout for external process monitoring
+
+### 3. Frame Saving (video_generator.py)
+- Added `save_frames()` method - saves all frames as frame_00.png, frame_01.png, etc.
+- Updated `generate_video()` to return dict with {frames, frame_paths, video_path}
+
+### 4. Reliable Stitcher (video_generator.py)
+- Replaced cv2.VideoWriter with ffmpeg subprocess
+- Uses libx264 with configurable CRF and preset
+- Verifies output exists and has size > 0
+- Reports duration and file size in heartbeat
+
+### 5. Config Extraction
+- `.env`: Machine paths (SVD_OUTPUT_DIR, WINDOWS_DOWNLOADS)
+- `settings.yaml`: Logic defaults (resolution, VRAM thresholds, CRF, RIFE config)
+- `env_loader.py`: Added `get_path()` function
+
+### 6. Motion Smoother (motion_smoother.py) - NEW
+- `MotionSmoother` class with RIFE interpolation via rife-ncnn-vulkan
+- `extract_frames()`: ffmpeg frame extraction
+- `interpolate_frames()`: RIFE with vulkan_device from config
+- `stitch_to_video()`: ffmpeg H.264 encoding
+- `smooth_video()`: Full pipeline with temp cleanup
+
+### 7. Cinematic Director (cinematic_director.py) - NEW
+- `CinematicDirector` orchestrates full pipeline:
+  - Phase 1: SVD generate (8fps raw)
+  - Phase 2: RIFE smooth (60fps interpolated)
+  - Phase 3: Full Windows Handoff (timestamped folder)
+- `handoff_to_windows()` creates: `synterra_YYYYMMDD_HHMMSS/`
+  - `frames/` - all 25 frame PNGs (frame_00000000.png to frame_00000024.png)
+  - `raw_8fps.mp4` - original SVD output
+  - `cinematic_60fps.mp4` - RIFE smoothed output
+- CLI with --skip-smoothing, --skip-windows-copy, --json flags
+
+## Files Changed
+| File | Status |
+|------|--------|
+| backend/src/local/video_generator.py | Modified |
+| backend/src/local/motion_smoother.py | Created |
+| backend/src/local/cinematic_director.py | Created |
+| backend/src/utils/env_loader.py | Modified |
+| backend/config/settings.yaml | Modified |
+| backend/.env | Created |
+| backend/.env.example | Created |
+
+## Config Reference
+
+### settings.yaml
+```yaml
+generation:
+  negative_prompt: "crop, headshot, portrait, close-up, cut off feet, cropped legs, partial body"
+  profiles:
+    landscape_16_9: {width: 1024, height: 576}
+    portrait_full_body: {width: 576, height: 1024}  # 9:16 vertical
+    square: {width: 1024, height: 1024}
+
+svd:
+  model_id: "stabilityai/stable-video-diffusion-img2vid-xt"
+  resolution: {width: 1024, height: 576}
+  vram_thresholds: {high: 10, medium: 6, low: 3}
+  encoding: {crf: 17, preset: "slow"}
+
+motion_smoothing:
+  engine: "rife"
+  interpolation_factor: 4
+  fps_target: 60
+  vulkan_device: 0
+```
+
+### .env
+```bash
+SVD_OUTPUT_DIR=/home/craig/.../backend/src/output
+WINDOWS_DOWNLOADS=/mnt/c/Users/craig/Downloads
+```
+
+## Usage
+
+```bash
+# Run cinematic director
+cd backend
+python -m src.local.cinematic_director image.png -o synterra_cinematic_60fps.mp4
+
+# Skip smoothing (raw 8fps only)
+python -m src.local.cinematic_director image.png --skip-smoothing
+
+# JSON output for automation
+python -m src.local.cinematic_director image.png --json
+```
+
+## Circular Import Fix (Latest)
+
+**Problem:** `src/local/__init__.py` was importing heavy modules, causing circular dependencies when running scripts.
+
+**Solution:** Lightweight init - no heavy imports.
+
+```python
+# src/local/__init__.py - BEFORE (broken)
+from .image_generator import LocalImageGenerator  # Heavy!
+from .video_generator import LocalVideoGenerator  # Heavy!
+
+# src/local/__init__.py - AFTER (fixed)
+"""Lightweight init - import directly from submodules."""
+__all__ = ["image_generator", "video_generator", ...]
+```
+
+**Usage:** Import directly from submodules:
+```python
+from src.local.image_generator import LocalImageGenerator
+from src.local.video_generator import LocalVideoGenerator
+```
+
+## Path Normalization (Latest Fix)
+
+All modules now normalize paths with `os.path.abspath()` immediately:
+- `image_generator.py` - `save_image()` and `generate_and_save()` methods
+- `video_generator.py` - `generate_video()` normalizes input path
+- `cinematic_director.py` - `run()` normalizes + verifies + 1s delay
+
+### Verification Flow
+```
+1. Normalize: Path(os.path.abspath(str(path)))
+2. Verify: if not path.exists(): raise FileNotFoundError
+3. Delay: time.sleep(1)  # Wait for filesystem
+4. Log: Emit heartbeat with absolute path + file size
+```
+
+## Next Steps
+- [ ] Test full pipeline with CUDA-enabled environment
+- [ ] Install rife-ncnn-vulkan if not present
+- [ ] Verify Windows path is accessible via WSL
+
+## Dependencies
+- ffmpeg (for frame extraction and stitching)
+- rife-ncnn-vulkan (for RIFE interpolation)
+- torch with CUDA (for SVD)

@@ -1,0 +1,173 @@
+{
+  "test_configuration": {
+    "description": "Interactive Timeline Workflow Test Configuration",
+    "version": "1.0.0",
+    "test_environment": {
+      "backend_url": "http://localhost:8000",
+      "frontend_url": "http://localhost:3000",
+      "test_audio_path": "data/uploads/test_song.mp3",
+      "timeout_limits": {
+        "video_generation": 600,
+        "scene_regeneration": 120,
+        "video_rebuild": 300
+      }
+    },
+    "test_scenarios": {
+      "basic_workflow": {
+        "description": "Full workflow from generation to scene editing",
+        "user_prompt": "A romantic couple walking through a magical forest at sunset",
+        "quality_tier": "professional",
+        "expected_scenes": 24,
+        "scene_to_edit": "middle",
+        "edit_prompt": "Two characters sharing a romantic kiss under moonlight"
+      },
+      "timeline_stress_test": {
+        "description": "Test timeline with maximum scenes",
+        "user_prompt": "Epic adventure through multiple landscapes",
+        "quality_tier": "cinematic",
+        "expected_scenes": 48,
+        "multiple_edits": [
+          {
+            "scene_index": 5,
+            "prompt": "Hero discovers magical artifact"
+          },
+          {
+            "scene_index": 20,
+            "prompt": "Intense battle sequence"
+          },
+          {
+            "scene_index": 40,
+            "prompt": "Victory celebration scene"
+          }
+        ]
+      },
+      "provider_comparison": {
+        "description": "Test different AI providers for scene regeneration",
+        "tests": [
+          {
+            "provider": "nano_banana",
+            "expected_cost": 0.04,
+            "style": "character_consistency"
+          },
+          {
+            "provider": "dalle",
+            "expected_cost": 0.08,
+            "style": "photorealistic"
+          },
+          {
+            "provider": "novelai",
+            "expected_cost": 0.06,
+            "style": "artistic_anime"
+          }
+        ]
+      }
+    },
+    "validation_criteria": {
+      "timeline_component": {
+        "required_features": [
+          "click_to_seek",
+          "scene_segments_visible",
+          "current_time_indicator",
+          "hover_tooltips",
+          "mood_color_coding"
+        ],
+        "performance_requirements": {
+          "seek_accuracy_ms": 100,
+          "timeline_render_time_ms": 500,
+          "interaction_response_ms": 50
+        }
+      },
+      "scene_editing": {
+        "required_features": [
+          "scene_description_editable",
+          "effects_selection",
+          "provider_selection",
+          "cost_estimation",
+          "real_time_preview"
+        ],
+        "api_requirements": {
+          "regeneration_endpoint": "/api/regenerate-scene",
+          "rebuild_endpoint": "/api/rebuild-video",
+          "status_endpoint": "/api/status/{task_id}"
+        }
+      },
+      "video_integration": {
+        "required_features": [
+          "seamless_video_updates",
+          "scene_change_visibility",
+          "audio_sync_maintained",
+          "quality_preserved"
+        ],
+        "file_requirements": {
+          "output_format": "mp4",
+          "resolution": "1792x1024",
+          "frame_rate": 24,
+          "audio_codec": "aac"
+        }
+      }
+    },
+    "error_scenarios": {
+      "api_failures": {
+        "missing_api_keys": {
+          "test": "Remove API keys temporarily",
+          "expected": "Graceful error handling with user feedback"
+        },
+        "network_timeout": {
+          "test": "Simulate network interruption",
+          "expected": "Retry mechanism with progress preservation"
+        },
+        "invalid_scene_index": {
+          "test": "Request editing non-existent scene",
+          "expected": "Validation error with helpful message"
+        }
+      },
+      "ui_edge_cases": {
+        "empty_storyboard": {
+          "test": "Load timeline with no scenes",
+          "expected": "Empty state message shown"
+        },
+        "very_long_video": {
+          "test": "Load timeline with 60+ scenes",
+          "expected": "Efficient rendering and smooth interaction"
+        },
+        "concurrent_editing": {
+          "test": "Edit multiple scenes simultaneously",
+          "expected": "Queue management with clear status"
+        }
+      }
+    }
+  },
+  "manual_test_checklist": [
+    "✅ Backend server starts successfully (uvicorn main:app --reload)",
+    "✅ Frontend builds and starts (npm start)",
+    "✅ Video generation completes with storyboard",
+    "✅ Timeline renders with scene segments",
+    "✅ Clicking scene seeks video to correct timestamp",
+    "✅ Hover shows scene details tooltip",
+    "✅ Double-click opens scene edit modal",
+    "✅ Scene description can be modified",
+    "✅ Effects can be toggled on/off",
+    "✅ AI provider selection works with cost display",
+    "✅ Scene regeneration triggers with progress feedback",
+    "✅ Video rebuilds after scene changes",
+    "✅ Updated scenes visible in final video",
+    "✅ Timeline reflects scene changes",
+    "✅ Download works for updated video"
+  ],
+  "performance_benchmarks": {
+    "professional_tier": {
+      "scenes": 24,
+      "initial_generation": "5-12 minutes",
+      "scene_regeneration": "30-60 seconds",
+      "video_rebuild": "1-3 minutes",
+      "cost_per_scene_edit": "$0.04-$0.08"
+    },
+    "cinematic_tier": {
+      "scenes": 48,
+      "initial_generation": "10-20 minutes",
+      "scene_regeneration": "30-60 seconds",
+      "video_rebuild": "2-5 minutes",
+      "cost_per_scene_edit": "$0.04-$0.08"
+    }
+  }
+}

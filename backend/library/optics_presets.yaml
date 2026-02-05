@@ -1,0 +1,146 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# OPTICS PRESETS - Cinematography Building Blocks
+# ═══════════════════════════════════════════════════════════════════════════════
+# Based on "Creating Photorealistic Images" guide + Synterra Director Engine
+# ═══════════════════════════════════════════════════════════════════════════════
+
+version: "1.0"
+description: "Optics presets for photorealistic cinematography"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CAMERAS
+# ═══════════════════════════════════════════════════════════════════════════════
+cameras:
+  ARRI_ALEXA_65:
+    prompt_tokens: "shot on ARRI ALEXA 65, large format sensor, cinematic depth of field"
+    description: "High-end cinema camera, extreme shallow DOF, luxury/fashion aesthetic"
+  BOLEX_H16:
+    prompt_tokens: "shot on Bolex H16, 16mm film aesthetic, handheld texture"
+    description: "Vintage 16mm camera, gritty handheld look, documentary/action feel"
+  RED_DIGITAL_CINEMA:
+    prompt_tokens: "shot on RED camera, 8K resolution, digital cinema quality"
+    description: "Modern digital cinema, sharp details, neutral color science"
+  ARRIFLEX_35:
+    prompt_tokens: "shot on ARRIFLEX 35mm, cinematic motion blur, film grain"
+  SONY_VENICE:
+    prompt_tokens: "shot on Sony Venice, full frame sensor, natural skin tones"
+  PANAVISION_MILLENNIUM:
+    prompt_tokens: "shot on Panavision Millennium XL2, anamorphic lens flare, wide format"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FILM STOCKS
+# ═══════════════════════════════════════════════════════════════════════════════
+film_stocks:
+  CINESTILL_800T:
+    prompt_tokens: "Cinestill 800T film stock, (red halation:1.2), tungsten balanced"
+  KODAK_PORTRA_160:
+    prompt_tokens: "Kodak Portra 160, natural skin tones, soft pastel colors"
+  KODAK_PORTRA_400:
+    prompt_tokens: "Kodak Portra 400, subtle grain, natural color palette"
+  KODAK_VISION3_500T:
+    prompt_tokens: "Kodak Vision3 500T, motion picture film, cinema color grading"
+  FUJI_VELVIA_50:
+    prompt_tokens: "Fuji Velvia 50, high saturation, vibrant colors"
+  ILFORD_HP5:
+    prompt_tokens: "Ilford HP5 Plus, black and white film, high contrast grain"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# LIGHTING
+# ═══════════════════════════════════════════════════════════════════════════════
+lighting:
+  CHIAROSCURO:
+    prompt_tokens: "chiaroscuro lighting, dramatic contrast, deep shadows"
+  HARD_LIGHT:
+    prompt_tokens: "(hard light:1.4), sharp shadows, high contrast"
+  DRAMATIC_RIM_LIGHTING:
+    prompt_tokens: "dramatic rim lighting, backlit silhouette, edge glow"
+  BOUNCED_SOFT:
+    prompt_tokens: "soft bounced light, diffused illumination, even tones"
+  NEON_NOIR:
+    prompt_tokens: "neon lighting, colored light spill, urban night atmosphere"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MOTION
+# ═══════════════════════════════════════════════════════════════════════════════
+motion:
+  HANDHELD_AGGRESSIVE:
+    prompt_tokens: "aggressive handheld, shaky cam, urgent movement"
+  STEADICAM_SMOOTH:
+    prompt_tokens: "smooth steadicam shot, floating camera movement"
+  STATIC_LOCKED:
+    prompt_tokens: "static locked-off shot, tripod stability"
+  HIGH_SPEED_STATIC:
+    prompt_tokens: "stationary camera, high speed film, frozen background, subject motion only"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# QUALITY & ADETAILER
+# ═══════════════════════════════════════════════════════════════════════════════
+quality_tokens:
+  skin_detail:
+    mandatory: true
+    prompt_tokens: "detailed skin, realistic skin texture, (subsurface scattering:1.1)"
+  general_quality:
+    mandatory: true
+    prompt_tokens: "photorealistic, professional photography, 8k"
+
+adetailer:
+  face_repair:
+    enabled: true
+    model: "face_yolov8n.pt"
+    confidence: 0.3
+  hand_repair:
+    enabled: true
+    model: "hand_yolov8n.pt"
+    confidence: 0.4
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NEGATIVE PROMPTS
+# ═══════════════════════════════════════════════════════════════════════════════
+negative_prompts:
+  anatomy:
+    prompt_tokens: >-
+      (fused limbs:1.5), (extra fingers:1.4), broken joints, mutated hands,
+      detached limbs, (deformed anatomy:1.3), liquid body, (merged torsos:1.4), 
+      score_4, score_5, score_6
+  quality:
+    prompt_tokens: >-
+      3d render, CGI, cartoon, anime, illustration, painting, drawing, plastic skin, 
+      blurry, low quality, watermark, censorship, blurred contact
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PRODUCTION STYLES
+# ═══════════════════════════════════════════════════════════════════════════════
+production_styles:
+  STYLE_HIGH_VELOCITY_ACTION:
+    camera: "RED_DIGITAL_CINEMA"
+    film: "KODAK_PORTRA_160"
+    lighting: "HARD_LIGHT"
+    motion: "HIGH_SPEED_STATIC"
+    # AKD PIVOT: Rebalanced for skeletal consistency with physics tracking
+    prompt_tokens: "score_9, score_8_up, (muscular man throwing an explosive fast haymaker punch:1.5), stationary camera, static background, tripod shot, fixed perspective, clean background, high contrast, detailed skin"
+    motion_bucket_id: 110   # AKD: Reduced from 127 to prevent limb implosion
+    fps: 8                  # AKD: Increased from 6 to reduce temporal gap (166ms → 125ms)
+    augmentation_level: 0.12  # AKD: Reduced from 0.18 for skeletal stability
+
+  STYLE_URBAN_LUXURY:
+    camera: "ARRI_ALEXA_65"
+    film: "KODAK_VISION3_500T"
+    lighting: "NEON_NOIR"
+    motion: "STEADICAM_SMOOTH"
+    prompt_tokens: "(iced out jewelry:1.4), (diamond refraction:1.5), (bust down watch:1.3), heavy gold chains, flashy street cred, volumetric urban haze"
+    motion_bucket_id: 30   # Slow, expensive "Steadicam" glide
+    fps: 25
+    augmentation_level: 0.05 # Cleaner, high-end motion
+
+
+
+  STYLE_PHYSICAL_DRAMA:
+    camera: "RED_DIGITAL_CINEMA"
+    film: "KODAK_PORTRA_160"
+    lighting: "BOUNCED_SOFT"
+    motion: "STATIC_LOCKED"
+    # OPTIMIZED: Umbrella terms to save token space for the Subject
+    prompt_tokens: "score_9, score_8_up, (anatomical structural integrity:1.4), (raw visceral interaction:1.4), (aggressive grappling:1.3), realistic skin deformation, sweat-soaked pores, nsfw, uncensored, explicit content, (detailed genital anatomy:1.2), (full body exposure:1.2)"
+    motion_bucket_id: 60   # Medium tension for grappling/interaction
+    fps: 25
+    augmentation_level: 0.08
