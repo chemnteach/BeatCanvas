@@ -6,14 +6,86 @@ Compatible with RAFT interpolation pipeline
 AKD Integration (CVPR 2025):
 - Uses physics-based skeletal tracking to prevent limb implosion
 - Enforces bone length constraints against anchor image
+
+Temporal Smoothing (2026-02-05):
+- Gaussian-weighted frame blending to reduce micro-jitter
+- Applied before RAFT interpolation to prevent jitter amplification
 """
 
 import torch
 import torch.nn.functional as F
 import numpy as np
 import cv2
+from typing import List, Tuple, Optional
 
 from .physics_motion_tracker import SkeletalConsistencyChecker, create_skeletal_checker
+
+
+def temporal_smooth(
+    frames: List[np.ndarray],
+    kernel_size: int = 3,
+    weights: Optional[Tuple[float, ...]] = None,
+    preserve_endpoints: bool = True
+) -> List[np.ndarray]:
+    """
+    Apply Gaussian-weighted temporal smoothing to reduce frame-to-frame jitter.
+
+    This smooths the 25 SVD-XT frames BEFORE RAFT interpolation, preventing
+    micro-inconsistencies from being amplified during upsampling.
+
+    Args:
+        frames: List of numpy arrays (H, W, 3) in BGR format
+        kernel_size: Number of frames to blend (3 = prev + current + next)
+        weights: Custom weights tuple. Default for kernel_size=3: (0.25, 0.5, 0.25)
+                 For kernel_size=5: (0.1, 0.2, 0.4, 0.2, 0.1)
+        preserve_endpoints: If True, keep first and last frames unmodified
+                           to maintain anchor consistency
+
+    Returns:
+        Smoothed frames list (same length as input)
+    """
+    if len(frames) < kernel_size:
+        print(f"[TemporalSmooth] Warning: Only {len(frames)} frames, skipping smoothing")
+        return frames
+
+    # Default weights: center-weighted Gaussian-like
+    if weights is None:
+        if kernel_size == 3:
+            weights = (0.25, 0.5, 0.25)
+        elif kernel_size == 5:
+            weights = (0.1, 0.2, 0.4, 0.2, 0.1)
+        elif kernel_size == 7:
+            weights = (0.05, 0.1, 0.2, 0.3, 0.2, 0.1, 0.05)
+        else:
+            # Generate approximate Gaussian weights
+            import scipy.signal as signal
+            weights = signal.windows.gaussian(kernel_size, std=kernel_size/4)
+            weights = tuple(weights / weights.sum())
+
+    assert len(weights) == kernel_size, f"Weights length {len(weights)} != kernel_size {kernel_size}"
+    assert abs(sum(weights) - 1.0) < 0.01, f"Weights must sum to 1.0, got {sum(weights)}"
+
+    half_kernel = kernel_size // 2
+    smoothed = []
+
+    for i in range(len(frames)):
+        # Preserve endpoints (anchor frame and final frame)
+        if preserve_endpoints and (i < half_kernel or i >= len(frames) - half_kernel):
+            smoothed.append(frames[i].copy())
+            continue
+
+        # Gather neighborhood frames
+        blended = np.zeros_like(frames[i], dtype=np.float32)
+        for j, weight in enumerate(weights):
+            neighbor_idx = i - half_kernel + j
+            # Clamp to valid range (shouldn't happen with preserve_endpoints)
+            neighbor_idx = max(0, min(len(frames) - 1, neighbor_idx))
+            blended += frames[neighbor_idx].astype(np.float32) * weight
+
+        smoothed.append(blended.astype(np.uint8))
+
+    print(f"[TemporalSmooth] Applied kernel_size={kernel_size} smoothing to {len(frames)} frames")
+    return smoothed
 
 
 class TemporalConsistencySVD:
@@ -22,17 +94,28 @@ class TemporalConsistencySVD:
     Inspired by VideoControlNet (codec-style I/P/B frames)
     """
 
-    def __init__(self, svd_pipeline, consistency_threshold=0.15, skeletal_tolerance=0.10):
+    def __init__(
+        self,
+        svd_pipeline,
+        consistency_threshold: float = 0.15,
+        skeletal_tolerance: float = 0.10,
+        temporal_smoothing: bool = True,
+        smooth_kernel_size: int = 3
+    ):
         """
         Args:
             svd_pipeline: Loaded SVD-XT pipeline from diffusers
             consistency_threshold: Max allowed structural deviation (0-1)
             skeletal_tolerance: Max allowed bone length deviation (0.10 = 10%)
+            temporal_smoothing: Enable frame smoothing to reduce jitter (default True)
+            smooth_kernel_size: Smoothing kernel size (3, 5, or 7). Higher = more smoothing
         """
         self.pipe = svd_pipeline
         self.consistency_threshold = consistency_threshold
         self.skeletal_tolerance = skeletal_tolerance
         self.skeletal_checker = None  # Initialized when anchor is set
+        self.temporal_smoothing = temporal_smoothing
+        self.smooth_kernel_size = smooth_kernel_size
 
     def extract_structural_features(self, image):
         """
@@ -164,6 +247,11 @@ class TemporalConsistencySVD:
                 print(f"[TemporalConsistency] ✓ Generation successful - all frames consistent")
                 if self.skeletal_checker:
                     print(f"[TemporalConsistency] ✓ AKD skeletal check passed - bone lengths within {self.skeletal_tolerance*100:.0f}% tolerance")
+
+                # Apply temporal smoothing to reduce micro-jitter before RAFT
+                if self.temporal_smoothing:
+                    frames = temporal_smooth(frames, kernel_size=self.smooth_kernel_size)
+
                 return frames
 
             else:
@@ -196,6 +284,11 @@ class TemporalConsistencySVD:
         # If all retries failed, return best attempt with warning
         print(f"[TemporalConsistency] ⚠ Warning: Could not achieve full consistency after {max_retries} attempts")
         print(f"  Returning frames from final attempt")
+
+        # Still apply temporal smoothing to reduce jitter in imperfect output
+        if self.temporal_smoothing:
+            frames = temporal_smooth(frames, kernel_size=self.smooth_kernel_size)
+
         return frames
 
     def generate_with_keyframe_anchoring(self,

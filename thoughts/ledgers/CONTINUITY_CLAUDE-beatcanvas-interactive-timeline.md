@@ -118,12 +118,24 @@ Pivoted from cloud APIs (Luma, DALL-E) to fully open source local pipeline:
 - Frames are anatomically correct but visually inconsistent
 - RAFT faithfully interpolates between jittery keyframes, amplifying issue
 
-### Proposed Fix: Temporal Smoothing
-Insert Gaussian-weighted temporal blend between SVD output and RAFT input:
+### Implemented Fix: Temporal Smoothing (2026-02-05)
+Inserted Gaussian-weighted temporal blend between SVD output and RAFT input:
 ```
-SVD (25 frames) → Temporal Smooth → RAFT → 240 frames
+SVD (25 frames) → Validation → Temporal Smooth → RAFT → 240 frames
 ```
-Location: `temporal_consistency.py`, after validation, before returning to RAFT
+
+**Implementation Details:**
+- Added `temporal_smooth()` function to `temporal_consistency.py`
+- Kernel size configurable (3, 5, or 7) - default 3
+- Weights: (0.25, 0.5, 0.25) for center-weighted blend
+- Preserves first/last frames for anchor consistency
+- Applied in both success and fallback return paths
+
+**New Parameters in `TemporalConsistencySVD.__init__`:**
+- `temporal_smoothing: bool = True` - Enable/disable smoothing
+- `smooth_kernel_size: int = 3` - Smoothing intensity
+
+**Status:** Implemented, needs testing with actual SVD output
 
 ### Files Involved
 - `src/cinematography/temporal_consistency.py` - SVD wrapper, add smoothing here
