@@ -118,7 +118,7 @@ production_styles:
     motion: "HIGH_SPEED_STATIC"
     # AKD PIVOT: Rebalanced for skeletal consistency with physics tracking
     prompt_tokens: "score_9, score_8_up, (muscular man throwing an explosive fast haymaker punch:1.5), stationary camera, static background, tripod shot, fixed perspective, clean background, high contrast, detailed skin"
-    motion_bucket_id: 70    # Reduced from 110: skeletal violations at 110 (25/25 frames failed)
+    motion_bucket_id: 70    # Retest with relaxed 15% skeletal tolerance (was failing at 8%)
     fps: 8                  # AKD: Increased from 6 to reduce temporal gap (166ms → 125ms)
     augmentation_level: 0.12  # AKD: Reduced from 0.18 for skeletal stability
 

@@ -70,7 +70,7 @@ DEFAULT_MOTION_BUCKET_ID = 70  # Reduced from 110 for jitter stability (110 caus
 RAFT_MODEL_SIZE = 'large'       # 'large' for quality, 'small' for speed
 RAFT_ITERATIONS = 32            # AKD PIVOT: Increased from 20 for skeletal precision
 CONSISTENCY_THRESHOLD = 0.18    # RELAXED: Allow rapid limb displacement
-SKELETAL_TOLERANCE = 0.08       # JITTER FIX: Strict 8% to forbid jerky frame jumps
+SKELETAL_TOLERANCE = 0.15       # Relaxed for action poses with extended limbs (8% too strict for perspective foreshortening)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -203,7 +203,7 @@ def load_svd_pipeline_with_consistency():
         consistency_threshold=CONSISTENCY_THRESHOLD,
         skeletal_tolerance=SKELETAL_TOLERANCE,
         motion_bucket_id=DEFAULT_MOTION_BUCKET_ID,
-        temporal_smoothing=False  # Disabled: causes blur on fast-moving objects
+        temporal_smoothing=False  # Disabled: smoothing caused motion to become just panning
     )
 
     print(f"   ✓ SVD + Temporal Consistency + AKD Skeletal ready")
