@@ -373,25 +373,40 @@ Total peak:                       ~8.5 GB  ✅ Fits 10GB GPU
 | Camera Motion LoRAs (optional) | ~77 MB each | Pan, tilt, zoom effects |
 | IP-Adapter Plus Face (SD 1.5) | ~1 GB | Character consistency |
 
-### Integration Plan
+### Integration Plan (Hybrid Approach)
 
-**Phase 8.1: AnimateDiff Core** (~2-3 hours)
+**Phase 8.1: AnimateDiff Foundation** (~2-3 hours) - PRIORITY
 1. Create `backend/scripts/render_video_animatediff.py` (replaces `render_video_svd.py`)
 2. Install AnimateDiff-Lightning via diffusers
-3. Test beach walking scene with AnimateDiff
-4. Compare visual quality vs SVD-XT output
+3. Download CyberRealistic v3.3 checkpoint + LCM LoRA
+4. Test beach walking scene with AnimateDiff
 5. Verify RAFT interpolation works with 16 frames (vs 25)
+6. Compare visual quality vs SVD-XT output
+7. **Goal:** Working video pipeline end-to-end
 
-**Phase 8.2: Style Integration** (~1 hour)
-1. Update `optics_presets.yaml` with AnimateDiff-specific parameters
-2. Add prompt optimization for 75-token limit
-3. Test all three existing styles (HIGH_VELOCITY_ACTION, URBAN_LUXURY, BEACH_CASUAL)
+**Phase 8.2: AnimateDiff Production** (~1-2 hours)
+1. Update `optics_presets.yaml` with AnimateDiff parameters
+2. Optimize prompts for 75-token limit (cinematography tokens)
+3. Add seed locking for character consistency
+4. Test batch processing (2-3 parallel instances)
+5. Test all styles (HIGH_VELOCITY_ACTION, URBAN_LUXURY, BEACH_CASUAL)
+6. **Goal:** Production-ready for standard scenes
 
-**Phase 8.3: Full Pipeline** (~2 hours)
-1. Replace SVD calls in main pipeline
-2. Add character consistency via seed locking
-3. Test multi-scene generation (12-48 scenes)
-4. Performance benchmarks
+**Phase 8.3: WAN 2.2 Hero Scenes** (~4-6 hours) - ENHANCEMENT
+1. Install WAN 2.2 in ComfyUI
+2. Download WAN 2.2 models (14B fp16) + LoRAs (Instareal, Lightx2v)
+3. Create ComfyUI workflow for I2V generation
+4. Convert workflow to Python wrapper
+5. Test hero scene (chorus) with WAN 2.2
+6. Compare quality vs AnimateDiff for same scene
+7. **Goal:** Quality upgrade for 4-6 key scenes per video
+
+**Phase 8.4: Hybrid Pipeline Integration** (~2-3 hours)
+1. Add scene classification (hero vs standard)
+2. Route hero scenes to WAN 2.2, standard to AnimateDiff
+3. Unified output handling (both → RAFT → assembly)
+4. Performance benchmarks (24-scene video)
+5. **Goal:** Best of both worlds in production
 
 ### Open Questions
 
@@ -400,16 +415,66 @@ Total peak:                       ~8.5 GB  ✅ Fits 10GB GPU
 3. **Realistic Vision V5.1 quality** - validate against BeatCanvas quality bar for beach/action styles
 4. **Prompt engineering** - how to stay under 75 tokens with full cinematography tokens?
 
+### Additional Research: WAN 2.1/2.2 Analysis (2026-02-06)
+
+**Discovery:** User has **16GB VRAM** (not 10GB) - enables WAN 2.2 at full quality
+
+**WAN 2.2 Capabilities:**
+- State-of-the-art open source quality (released Feb 2025)
+- Image-to-video like SVD but photorealistic for humans
+- Instareal LoRA for advanced lighting/photorealism
+- Lightx2v LoRA for 3x speed boost
+- 720p output at 81-100 frames
+- VRAM: 16GB recommended (user has exactly this)
+
+**Research Source:** Perplexity comprehensive guide to open-source AI music video animation
+
+**Technology Comparison (16GB VRAM):**
+
+| Factor | WAN 2.2 | AnimateDiff | SVD-XT (current) |
+|--------|---------|-------------|------------------|
+| **Quality** | State-of-the-art | Very good | Poor (blur/deformation) |
+| **VRAM Fit (16GB)** | ✅ Perfect | ✅ Overkill (5.6GB) | ✅ Fits (8GB) |
+| **Workflow** | Image→Video (2 steps) | Text→Video (1 step) | Image→Video |
+| **Maturity** | New (Feb 2025) | Battle-tested (2023+) | Mature |
+| **Ecosystem** | Limited | Massive | N/A |
+| **ControlNet** | Limited | Full support | None |
+| **Batch Processing** | Sequential (14GB) | 2-3 parallel (5.6GB) | Sequential |
+| **Character Motion** | Excellent | Good | ❌ Poor |
+
+### Final Architecture Decision: Hybrid Approach
+
+**Strategy:** AnimateDiff first, then add WAN 2.2 for hero scenes
+
+**Rationale:**
+1. **AnimateDiff (Phase 8.1)**: Quick win, proven tech, ships working pipeline in 2-3 hours
+2. **WAN 2.2 (Phase 8.2)**: Quality upgrade for hero scenes after pipeline validated
+3. **Risk mitigation**: If WAN 2.2 has issues, AnimateDiff is stable fallback
+4. **Production efficiency**:
+   - WAN 2.2 for 4-6 hero scenes (chorus, drops) @ 5 min = 20-30 min
+   - AnimateDiff for 18-40 standard scenes (parallel) @ 2 min = 14 min
+   - Total: ~35-45 min vs 2 hours WAN-only
+
+**Benefits of Hybrid:**
+- ✅ Best quality where it matters (hero scenes)
+- ✅ Fast iteration for standard scenes
+- ✅ Proven foundation (AnimateDiff) + cutting edge (WAN 2.2)
+- ✅ Batch processing capability maintained
+- ✅ Fallback if WAN has issues
+
 ### Deferred: Dolphin/Ollama GPT-4 Replacement
 
 **Summary:** Replace GPT-4 with dolphin3 (Llama 3.1 8B) for narrative/prompt generation
 - **Quality**: 70-80% of GPT-4 for creative writing
 - **Cost**: $0 (vs GPT-4's ~$0.60 per storyboard)
-- **VRAM**: 6-7GB (fits alongside AnimateDiff on 12GB+ GPU)
+- **VRAM**: 6-7GB (fits alongside AnimateDiff on 16GB GPU)
 - **Integration**: Minimal (OpenAI-compatible API, 2 files changed)
-- **Status**: DEFERRED until AnimateDiff migration complete
+- **Status**: DEFERRED until video generation migration complete
 
-Full research report: `/home/craig/AI_Workspace/synterra/beatcanvas/backend/.claude/cache/agents/oracle/output-20260206-dolphin-ollama.md`
+**Research Reports:**
+- AnimateDiff: `/home/craig/AI_Workspace/synterra/beatcanvas/backend/.claude/cache/agents/oracle/output-20260206T131610Z.md`
+- Dolphin/Ollama: `/home/craig/AI_Workspace/synterra/beatcanvas/backend/.claude/cache/agents/oracle/output-20260206-dolphin-ollama.md`
+- WAN 2.2 & comprehensive guide: Perplexity research (user-provided)
   - [ ] Add /api/test-video-slice endpoint
   - [ ] Video rebuild pipeline integration with scene changes
   - [ ] End-to-end testing of complete workflow
