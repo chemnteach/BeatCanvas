@@ -117,8 +117,18 @@ Transform BeatCanvas from basic video generation to a professional editing platf
     - [x] Test results: 16 frames in 14.8s @ 4GB VRAM, interpolated to 241 frames in 11.5s
     - [x] Generated 2.3MB test video (4.02s @ 60fps, 576×1024)
     - [x] Verified RAFT interpolation works with 16 frames (vs 25 from SVD)
-- Now: [→] Phase 8.2: AnimateDiff Production Integration (2026-02-06)
-- Next: Optimize prompts for 75-token limit, create AnimateDiffGenerator production wrapper
+  - [→] Phase 8.2: AnimateDiff Production Integration (2026-02-06)
+    - [x] Optimized prompts for 75-token CLIP limit
+    - [x] Added animatediff_prompt_tokens to all 4 production styles
+    - [x] Removed SDXL triggers (score_9, score_8_up) from AnimateDiff prompts
+    - [x] Updated render_video_animatediff.py to use AnimateDiff-specific composition
+    - [x] Verified no prompt truncation with optimized tokens
+    - [ ] Create AnimateDiffGenerator production wrapper class
+    - [ ] Implement seed locking for character consistency
+    - [ ] Test batch processing (2-3 parallel instances)
+    - [ ] Test all 4 styles with AnimateDiff
+- Now: [→] Phase 8.2 continued: Create AnimateDiffGenerator production wrapper
+- Next: Implement production wrapper with VRAMManager integration and seed locking
 - Remaining:
   - [ ] Install AnimateDiff-Lightning and dependencies (diffusers, torch)
   - [ ] Create VideoGeneratorAnimateDiff class
