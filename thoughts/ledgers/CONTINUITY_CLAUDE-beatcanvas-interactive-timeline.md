@@ -94,11 +94,29 @@ Transform BeatCanvas from basic video generation to a professional editing platf
     - [x] Enhanced assembler with mixed video/image support
     - [x] Character management system for multi-character videos
     - [x] Updated requirements.txt with lumaai package
-- Now: [→] Phase 7: Motion Quality Resolution - SVD-XT Replacement (2026-02-06)
-- Next: Replace SVD-XT with AnimateDiff-Lightning for character animation
+  - [x] Phase 7: Open Source Pipeline & Motion Quality (2026-02-05 to 2026-02-06)
+    - [x] Tested SVD-XT with motion jitter analysis
+    - [x] Discovered SVD-XT wrong tool for character animation
+    - [x] Researched AnimateDiff-Lightning as replacement
+    - [x] Researched WAN 2.2 for hybrid approach
+    - [x] Created STYLE_BEACH_CASUAL for testing
+    - [x] Comprehensive optical flow and skeletal validation analysis
+  - [x] Phase 8 Planning: Hybrid AnimateDiff + WAN 2.2 Architecture (2026-02-06)
+    - [x] Finalized hybrid architecture (AnimateDiff standard, WAN 2.2 hero scenes)
+    - [x] Created comprehensive execution plan (2,014 lines)
+    - [x] Added multi-format output strategy (portrait/landscape/square)
+    - [x] Added beat synchronization with librosa integration
+    - [x] Added 4K upscaling strategy (Real-ESRGAN + Topaz)
+    - [x] Committed execution plan and session handoff to GitHub
+- Now: [→] Phase 8 Implementation: AnimateDiff-Lightning Integration (2026-02-06)
+- Next: Install AnimateDiff-Lightning, create VideoGeneratorAnimateDiff, test beach scene
 - Remaining:
-  - [ ] Integrate AnimateDiff-Lightning pipeline
+  - [ ] Install AnimateDiff-Lightning and dependencies (diffusers, torch)
+  - [ ] Create VideoGeneratorAnimateDiff class
+  - [ ] Implement BeatSyncManager for beat-synchronized timelines
+  - [ ] Add FormatManager for multi-aspect ratio support
   - [ ] Test AnimateDiff with beach walking/dancing scenes
+  - [ ] Integrate WAN 2.2 for hero scenes (Phase 8.3)
   - [ ] Integrate video generation into main.py pipeline
   - [ ] (DEFERRED) Replace GPT-4 with Dolphin/Ollama for uncensored prompts
 
@@ -475,6 +493,60 @@ Total peak:                       ~8.5 GB  ✅ Fits 10GB GPU
 - AnimateDiff: `/home/craig/AI_Workspace/synterra/beatcanvas/backend/.claude/cache/agents/oracle/output-20260206T131610Z.md`
 - Dolphin/Ollama: `/home/craig/AI_Workspace/synterra/beatcanvas/backend/.claude/cache/agents/oracle/output-20260206-dolphin-ollama.md`
 - WAN 2.2 & comprehensive guide: Perplexity research (user-provided)
+
+### Phase 8 Execution Plan Complete (2026-02-06)
+
+**Status**: ✅ Comprehensive execution plan finalized and committed
+
+**Plan Document**: `backend/thoughts/shared/plans/phase8-hybrid-animatediff-wan-video-generation.md` (2,014 lines)
+
+**Architecture Enhancements Added:**
+
+1. **Multi-Format Output Strategy**
+   - **Rationale**: Different platforms require different aspect ratios (TikTok 9:16, YouTube 16:9, Instagram 1:1)
+   - **Architecture**: Shared pipeline (70%) with format-specific video generation (30%)
+   - **Implementation**:
+     - `FormatManager` class for aspect ratio handling
+     - Shared audio analysis, narrative mapping, and prompt generation
+     - Format-specific video composition and rendering
+     - Configuration in `optics_presets.yaml` with format overrides
+
+2. **Beat Synchronization with Librosa**
+   - **Rationale**: Professional music videos require beat-synchronized transitions
+   - **Integration**: Use existing librosa `beat_times` (already integrated in Phase 5)
+   - **Implementation**:
+     - `BeatSyncManager` class for timeline creation with beat timestamps
+     - Align section boundaries to nearest beat
+     - Sharp cuts on beats for professional feel
+     - Assembly enhancements for beat-aware transitions
+   - **User Approval**: "yes, add to phase 8 and I'll go with your recommendations on Librosa"
+
+3. **High-Resolution Upscaling (4K-Capable)**
+   - **Rationale**: Native 4K generation requires 500GB+ VRAM, multi-stage AI upscaling is practical
+   - **Strategy**: Generate at native resolution → Real-ESRGAN → Topaz (optional)
+   - **Resolution Targets**:
+     - 1080p: Social media / preview (free tier)
+     - 1440p: Premium delivery (Real-ESRGAN)
+     - 4K: Archival / premium client (Topaz Video Enhance AI)
+   - **Implementation**:
+     - `VideoUpscaler` class with Real-ESRGAN integration
+     - Multi-tier delivery system (preview/social/premium)
+     - Command-line integration with Topaz for final pass
+
+**Files Created**:
+- `backend/thoughts/shared/plans/phase8-hybrid-animatediff-wan-video-generation.md`
+- `thoughts/shared/handoffs/beatcanvas/2026-02-06_09-15_phase8-plan-enhancements.yaml`
+
+**Git Commits**:
+- `b74cb94` - Phase 8 execution plan with multi-format, beat sync, 4K upscaling
+- `05342bf` - Session handoff document
+
+**Next Steps** (from execution plan):
+  - [ ] Install AnimateDiff-Lightning and dependencies (diffusers, torch)
+  - [ ] Create VideoGeneratorAnimateDiff class
+  - [ ] Implement BeatSyncManager for beat-synchronized timeline creation
+  - [ ] Add FormatManager for multi-aspect ratio support
+  - [ ] Test AnimateDiff generation with STYLE_BEACH_CASUAL scene
   - [ ] Add /api/test-video-slice endpoint
   - [ ] Video rebuild pipeline integration with scene changes
   - [ ] End-to-end testing of complete workflow
