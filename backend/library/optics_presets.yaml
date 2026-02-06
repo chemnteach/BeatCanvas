@@ -116,21 +116,30 @@ production_styles:
     film: "KODAK_PORTRA_160"
     lighting: "HARD_LIGHT"
     motion: "HIGH_SPEED_STATIC"
-    # AKD PIVOT: Rebalanced for skeletal consistency with physics tracking
+    # SVD-XT specific (SDXL triggers, image-to-video)
     prompt_tokens: "score_9, score_8_up, (muscular man throwing an explosive fast haymaker punch:1.5), stationary camera, static background, tripod shot, fixed perspective, clean background, high contrast, detailed skin"
-    motion_bucket_id: 70    # Retest with relaxed 15% skeletal tolerance (was failing at 8%)
-    fps: 8                  # AKD: Increased from 6 to reduce temporal gap (166ms → 125ms)
-    augmentation_level: 0.12  # AKD: Reduced from 0.18 for skeletal stability
+    # AnimateDiff specific (SD 1.5, text-to-video, 75 token limit)
+    animatediff_prompt_tokens: "explosive fast punch, high speed motion, dynamic action, muscular physique, detailed skin, high contrast, sharp focus, motion blur"
+    animatediff_guidance_scale: 1.0
+    animatediff_num_frames: 16
+    motion_bucket_id: 70    # SVD-XT parameter
+    fps: 8
+    augmentation_level: 0.12
 
   STYLE_URBAN_LUXURY:
     camera: "ARRI_ALEXA_65"
     film: "KODAK_VISION3_500T"
     lighting: "NEON_NOIR"
     motion: "STEADICAM_SMOOTH"
+    # SVD-XT specific
     prompt_tokens: "(iced out jewelry:1.4), (diamond refraction:1.5), (bust down watch:1.3), heavy gold chains, flashy street cred, volumetric urban haze"
-    motion_bucket_id: 30   # Slow, expensive "Steadicam" glide
+    # AnimateDiff specific (SD 1.5, 75 token limit)
+    animatediff_prompt_tokens: "iced out jewelry, diamond watch, gold chains, neon city lights, cinematic bokeh, shallow depth, urban night, smooth camera movement"
+    animatediff_guidance_scale: 1.2
+    animatediff_num_frames: 16
+    motion_bucket_id: 30
     fps: 25
-    augmentation_level: 0.05 # Cleaner, high-end motion
+    augmentation_level: 0.05
 
 
 
@@ -139,9 +148,13 @@ production_styles:
     film: "KODAK_PORTRA_160"
     lighting: "BOUNCED_SOFT"
     motion: "STATIC_LOCKED"
-    # OPTIMIZED: Umbrella terms to save token space for the Subject
+    # SVD-XT specific (SDXL triggers)
     prompt_tokens: "score_9, score_8_up, (anatomical structural integrity:1.4), (raw visceral interaction:1.4), (aggressive grappling:1.3), realistic skin deformation, sweat-soaked pores, nsfw, uncensored, explicit content, (detailed genital anatomy:1.2), (full body exposure:1.2)"
-    motion_bucket_id: 60   # Medium tension for grappling/interaction
+    # AnimateDiff specific (SD 1.5, 75 token limit)
+    animatediff_prompt_tokens: "intimate physical interaction, detailed skin texture, soft bounced lighting, natural body, realistic anatomy, close-up portrait, emotional intensity"
+    animatediff_guidance_scale: 1.1
+    animatediff_num_frames: 16
+    motion_bucket_id: 60
     fps: 25
     augmentation_level: 0.08
 
@@ -150,8 +163,12 @@ production_styles:
     film: "KODAK_PORTRA_400"
     lighting: "BOUNCED_SOFT"
     motion: "STEADICAM_SMOOTH"
-    # Minimal director inject - let subject drive the scene
+    # SVD-XT specific (SDXL triggers)
     prompt_tokens: "score_9, score_8_up, natural lighting, golden hour, relaxed atmosphere, detailed skin"
-    motion_bucket_id: 70   # Same as current test for comparison
+    # AnimateDiff specific (SD 1.5, 75 token limit)
+    animatediff_prompt_tokens: "natural golden hour lighting, beach atmosphere, relaxed mood, soft bounced light, detailed skin, warm tones, cinematic"
+    animatediff_guidance_scale: 1.0
+    animatediff_num_frames: 16
+    motion_bucket_id: 70
     fps: 8
     augmentation_level: 0.12

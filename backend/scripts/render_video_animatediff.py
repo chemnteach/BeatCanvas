@@ -418,15 +418,33 @@ def main():
             final_prompt = args.prompt
             print(f"   Using direct prompt: {final_prompt}")
         else:
-            # Style-based composition
+            # AnimateDiff-specific prompt composition
             subject = "muscular man walking along the beach, golden hour, natural lighting, relaxed"
-            composed = engine.compose(subject=subject, style=style)
-            final_prompt = composed.full_prompt
-            print(f"   ✓ Composed from style:")
+
+            # Get AnimateDiff prompt tokens from YAML (no SDXL triggers)
+            animatediff_tokens = animatediff_settings.get("guidance_scale", 1.0)  # Placeholder, will extract from presets
+            style_config = presets.get("production_styles", {}).get(args.style, {})
+            animatediff_prompt = style_config.get("animatediff_prompt_tokens", "")
+
+            # Combine: AnimateDiff style tokens + subject + camera/film tokens
+            camera_name = style_config.get("camera", "")
+            film_name = style_config.get("film", "")
+
+            camera_tokens = presets.get("cameras", {}).get(camera_name, {}).get("prompt_tokens", "")
+            film_tokens = presets.get("film_stocks", {}).get(film_name, {}).get("prompt_tokens", "")
+
+            # Build AnimateDiff prompt (SD 1.5, no score triggers)
+            final_prompt = f"{animatediff_prompt}, {subject}, {camera_tokens}, {film_tokens}"
+            final_prompt = final_prompt.strip(", ")  # Clean up extra commas
+
+            print(f"   ✓ Composed AnimateDiff prompt (SD 1.5):")
+            print(f"     Style tokens: {animatediff_prompt}")
             print(f"     Subject: {subject}")
             print(f"     Full prompt: {final_prompt[:80]}...")
 
         negative = engine.get_negative_prompt(style=style)
+        # Remove SDXL score triggers from negative prompt
+        negative = negative.replace("score_4", "").replace("score_5", "").replace("score_6", "").strip(", ")
         print(f"   ✓ Negative prompt: {negative[:50]}...")
 
         gen_config = engine.get_generation_config(style=style)
