@@ -94,10 +94,13 @@ Transform BeatCanvas from basic video generation to a professional editing platf
     - [x] Enhanced assembler with mixed video/image support
     - [x] Character management system for multi-character videos
     - [x] Updated requirements.txt with lumaai package
-- Now: [→] Phase 7: Motion Jitter Resolution (2026-02-05)
-- Next: Implement temporal smoothing before RAFT interpolation
+- Now: [→] Phase 7: Motion Quality Resolution - SVD-XT Replacement (2026-02-06)
+- Next: Replace SVD-XT with AnimateDiff-Lightning for character animation
 - Remaining:
+  - [ ] Integrate AnimateDiff-Lightning pipeline
+  - [ ] Test AnimateDiff with beach walking/dancing scenes
   - [ ] Integrate video generation into main.py pipeline
+  - [ ] (DEFERRED) Replace GPT-4 with Dolphin/Ollama for uncensored prompts
 
 ## Phase 7: Open Source Pipeline & Motion Quality (2026-02-05 to 2026-02-06)
 
@@ -201,32 +204,51 @@ SVD (25 frames) → Validation → Temporal Smooth → RAFT → 240 frames
 - Processing time: 1509.6s (25 minutes)
 - Warning: "⚠ Warning: Could not achieve full consistency after 3 attempts. Returning frames from final attempt"
 
+### Breakthrough Test: Beach Walking Scene (2026-02-06)
+
+**Created STYLE_BEACH_CASUAL** to test typical music video content:
+- Style: Natural lighting, golden hour, relaxed atmosphere
+- Subject: Man walking on beach, ocean waves, peaceful
+- **No hardcoded punch tokens** (previous tests were overridden by STYLE_HIGH_VELOCITY_ACTION)
+
+**Results:**
+- ✅ **PASSED on first attempt!** - No skeletal violations
+- ✅ motion_bucket_id=70 with 15% tolerance works perfectly for typical content
+- ✅ Processing time: 594s (10 minutes) vs punch's 1509s (25 minutes)
+- ✅ File size: 2.8 MB vs punch's 3.1 MB (no retries needed)
+- ⚠️ **User report: "motion is blurry, especially on edges, right leg getting malformed"**
+
+**Critical Discovery: SVD-XT is the Wrong Tool**
+
+Despite passing skeletal validation, visual quality is poor:
+- Body edge blur (motion artifacts)
+- Limb deformation (right leg malformation)
+- **SVD-XT is designed for subtle camera motion, not character animation**
+
 ### Final Status (2026-02-06)
 
 **What We Learned:**
 1. Optical flow jitter was NEVER the problem
-2. Skeletal violations are the real issue
-3. motion_bucket_id parameter controls motion intensity, not jitter smoothness
-4. 8% tolerance is unrealistic for action poses with perspective foreshortening
-5. 15% tolerance still insufficient for extreme punch poses
-6. SVD-XT fundamentally struggles with animating extreme poses
+2. Skeletal violations were pose-specific (extreme punch vs casual walk)
+3. Validation passing ≠ good visual quality
+4. **SVD-XT fundamentally wrong for animating people** (camera motion model, not character motion)
+5. HuggingFace/CivitAI demos use different tech (AnimateDiff, not SVD)
 
-**Current State:**
-- ✅ Video pipeline functional with warnings
-- ⚠️ Skeletal violations still present (22-47% in best attempt)
-- ⚠️ Trade-off: Lower motion_bucket_id = less action feel but fewer violations
-- ⚠️ Higher tolerance = accept more anatomical deviation
+**Why Replace SVD-XT:**
+- Built for camera movement, not character animation
+- Blurs body edges during motion
+- Causes limb deformation (malformation)
+- No text prompt control (image-only)
+- No motion LoRA ecosystem
 
-**Next Steps (pending user decision):**
-1. Accept current output if imperfections are tolerable
-2. Increase tolerance to 25-30% for action content
-3. Use less extreme anchor image pose
-4. Try lower motion_bucket_id=50 for even safer motion
-5. Consider LoRA strategy for better motion control
+**Technology Pivot Decision:**
+Replace SVD-XT with **AnimateDiff-Lightning** for character animation
 
 ### Files Involved
 - `backend/scripts/render_video_svd.py` - Test script, SKELETAL_TOLERANCE parameter
-- `backend/library/optics_presets.yaml` - motion_bucket_id, fps, augmentation_level
+- `backend/library/optics_presets.yaml` - motion_bucket_id, fps, augmentation_level, STYLE_BEACH_CASUAL added
+- `backend/src/cinematography/style_logic.py` - Added STYLE_BEACH_CASUAL constant
+- `backend/scripts/test_render_realvis.py` - Added STYLE_BEACH_CASUAL support
 - `backend/src/cinematography/temporal_consistency.py` - SVD wrapper, temporal smoothing (disabled)
 - `backend/src/cinematography/raft_interpolator.py` - RAFT pipeline
 - `backend/src/cinematography/physics_motion_tracker.py` - AKD skeletal tracking
@@ -240,6 +262,154 @@ Three content tiers requiring open source:
 - **Rap/Explicit**: NSFW, violence (cloud blocked)
 
 Policy-based compliance via ComplianceGate + policy JSONs
+
+---
+
+## Phase 8: AnimateDiff Migration (Planned - 2026-02-06)
+
+### Research Complete
+
+**Full reports saved:**
+- AnimateDiff: `/home/craig/AI_Workspace/synterra/beatcanvas/backend/.claude/cache/agents/oracle/output-20260206T131610Z.md`
+- Dolphin/Ollama (deferred): `/home/craig/AI_Workspace/synterra/beatcanvas/backend/.claude/cache/agents/oracle/output-20260206-dolphin-ollama.md`
+
+### Why AnimateDiff > SVD-XT
+
+| Factor | SVD-XT (current) | AnimateDiff-Lightning (recommended) |
+|--------|------------------|-------------------------------------|
+| **Character consistency** | 3/10 (no IP-Adapter) | **8/10 (IP-Adapter + LoRA)** |
+| **Speed** | Slow (25 steps) | **10x faster (4 steps)** |
+| **Text prompt control** | None (image-only) | **Full prompt control** |
+| **Motion LoRAs** | None | **Massive ecosystem (CivitAI)** |
+| **ControlNet support** | Limited | **Full support** |
+| **10GB VRAM compatibility** | Fits (~8GB) | **Fits (~8.5GB peak)** |
+| **Visual quality** | ❌ Blurs edges, limb deformation | ✅ Clean character animation |
+
+### Architecture Decision: SD 1.5, Not SDXL
+
+**Critical:** AnimateDiff SDXL is still beta with pixelation issues. Must use SD 1.5 motion modules:
+
+- **Video generation**: AnimateDiff + **Realistic Vision V5.1** (SD 1.5 base model)
+- **Still images for storyboard**: Keep RealVisXL (SDXL) for preview images
+- **Separation already exists** in BeatCanvas architecture (image gen separate from video)
+
+This is NOT a downgrade - AnimateDiff SD 1.5 with proper motion modules produces better results than SVD-XT.
+
+### Integration Approach
+
+Replace `render_video_svd.py` with AnimateDiff pipeline using `diffusers` library:
+
+```python
+from diffusers import AnimateDiffPipeline, MotionAdapter, EulerDiscreteScheduler
+
+# Load Lightning 4-step adapter (ByteDance)
+adapter = MotionAdapter().to(dtype=torch.float16)
+adapter.load_state_dict(torch.load(
+    hf_hub_download("ByteDance/AnimateDiff-Lightning",
+                    "animatediff_lightning_4step_diffusers.safetensors"),
+))
+
+# Load SD 1.5 base model (Realistic Vision V5.1)
+pipe = AnimateDiffPipeline.from_pretrained(
+    "SG161222/Realistic_Vision_V5.1_noVAE",
+    motion_adapter=adapter,
+    torch_dtype=torch.float16,
+)
+pipe.scheduler = EulerDiscreteScheduler.from_config(
+    pipe.scheduler.config,
+    timestep_spacing="trailing",
+    beta_schedule="linear",
+)
+pipe.enable_vae_slicing()
+pipe.enable_model_cpu_offload()
+
+# Generate - ONLY 4 STEPS!
+output = pipe(
+    prompt="man walking on beach, golden hour, cinematic, relaxed stride",
+    negative_prompt="blurry, low quality, deformed",
+    num_frames=16,  # AnimateDiff generates 16 frames (vs SVD's 25)
+    guidance_scale=1.0,  # Lightning uses cfg=1.0 (NOT 7-8)
+    num_inference_steps=4,
+)
+```
+
+### Motion Control
+
+**Text prompts control character motion** - no separate motion LoRAs needed for walking/dancing/singing:
+- "man walking on beach" → walking animation
+- "woman dancing to music" → dancing animation
+- "person singing, expressive face" → singing with facial expressions
+
+**Camera motion LoRAs** available (77 MB each): pan, tilt, zoom, roll
+
+### Key Implementation Notes
+
+**Critical pitfalls to avoid:**
+1. **Prompts > 75 tokens** split into two scenes mid-clip - keep under 75
+2. **guidance_scale MUST be 1.0** for Lightning (higher causes artifacts)
+3. **16 frames is optimal** for SD 1.5 modules (trained length)
+4. **Lock seed between scenes** for character consistency (changing seed = different character)
+5. **Motion LoRA strength** should be 0.6-0.8 (over 0.8 causes artifacts)
+6. **Never mix SD 1.5 modules with SDXL** models (severe artifacts)
+
+### VRAM Budget (10GB GPU)
+
+```
+SD 1.5 model (Realistic Vision):  ~2.5 GB
+Lightning motion adapter:         ~1.5 GB
+IP-Adapter (face consistency):    ~1.0 GB
+VAE:                              ~0.5 GB
+Working memory (16 frames):       ~3.0 GB
+────────────────────────────────────────
+Total peak:                       ~8.5 GB  ✅ Fits 10GB GPU
+```
+
+### Model Downloads (automatic via HuggingFace)
+
+| Model | Size | Purpose |
+|-------|------|---------|
+| Realistic Vision V5.1 (SD 1.5) | ~2 GB | Base image generation |
+| AnimateDiff-Lightning 4-step | ~1.5 GB | Motion module |
+| Camera Motion LoRAs (optional) | ~77 MB each | Pan, tilt, zoom effects |
+| IP-Adapter Plus Face (SD 1.5) | ~1 GB | Character consistency |
+
+### Integration Plan
+
+**Phase 8.1: AnimateDiff Core** (~2-3 hours)
+1. Create `backend/scripts/render_video_animatediff.py` (replaces `render_video_svd.py`)
+2. Install AnimateDiff-Lightning via diffusers
+3. Test beach walking scene with AnimateDiff
+4. Compare visual quality vs SVD-XT output
+5. Verify RAFT interpolation works with 16 frames (vs 25)
+
+**Phase 8.2: Style Integration** (~1 hour)
+1. Update `optics_presets.yaml` with AnimateDiff-specific parameters
+2. Add prompt optimization for 75-token limit
+3. Test all three existing styles (HIGH_VELOCITY_ACTION, URBAN_LUXURY, BEACH_CASUAL)
+
+**Phase 8.3: Full Pipeline** (~2 hours)
+1. Replace SVD calls in main pipeline
+2. Add character consistency via seed locking
+3. Test multi-scene generation (12-48 scenes)
+4. Performance benchmarks
+
+### Open Questions
+
+1. **Lightning + IP-Adapter combination** - sparse documentation, needs empirical testing
+2. **RAFT interpolation from 16 frames** - larger temporal gaps than 25 frames (test quality)
+3. **Realistic Vision V5.1 quality** - validate against BeatCanvas quality bar for beach/action styles
+4. **Prompt engineering** - how to stay under 75 tokens with full cinematography tokens?
+
+### Deferred: Dolphin/Ollama GPT-4 Replacement
+
+**Summary:** Replace GPT-4 with dolphin3 (Llama 3.1 8B) for narrative/prompt generation
+- **Quality**: 70-80% of GPT-4 for creative writing
+- **Cost**: $0 (vs GPT-4's ~$0.60 per storyboard)
+- **VRAM**: 6-7GB (fits alongside AnimateDiff on 12GB+ GPU)
+- **Integration**: Minimal (OpenAI-compatible API, 2 files changed)
+- **Status**: DEFERRED until AnimateDiff migration complete
+
+Full research report: `/home/craig/AI_Workspace/synterra/beatcanvas/backend/.claude/cache/agents/oracle/output-20260206-dolphin-ollama.md`
   - [ ] Add /api/test-video-slice endpoint
   - [ ] Video rebuild pipeline integration with scene changes
   - [ ] End-to-end testing of complete workflow

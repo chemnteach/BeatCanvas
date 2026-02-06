@@ -45,7 +45,7 @@ def main():
         "--style",
         type=str,
         default="STYLE_HIGH_VELOCITY_ACTION",
-        choices=["STYLE_HIGH_VELOCITY_ACTION", "STYLE_URBAN_LUXURY", "STYLE_PHYSICAL_DRAMA"],
+        choices=["STYLE_HIGH_VELOCITY_ACTION", "STYLE_URBAN_LUXURY", "STYLE_PHYSICAL_DRAMA", "STYLE_BEACH_CASUAL"],
         help="Style to use for rendering",
     )
     parser.add_argument(
@@ -68,6 +68,7 @@ def main():
             STYLE_HIGH_VELOCITY_ACTION,
             STYLE_URBAN_LUXURY,
             STYLE_PHYSICAL_DRAMA,
+            STYLE_BEACH_CASUAL,
         )
 
         engine = CinematographyEngine()
@@ -87,6 +88,7 @@ def main():
             "STYLE_HIGH_VELOCITY_ACTION": STYLE_HIGH_VELOCITY_ACTION,
             "STYLE_URBAN_LUXURY": STYLE_URBAN_LUXURY,
             "STYLE_PHYSICAL_DRAMA": STYLE_PHYSICAL_DRAMA,
+            "STYLE_BEACH_CASUAL": STYLE_BEACH_CASUAL,
         }
         style = style_map[args.style]
 

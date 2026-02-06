@@ -144,3 +144,14 @@ production_styles:
     motion_bucket_id: 60   # Medium tension for grappling/interaction
     fps: 25
     augmentation_level: 0.08
+
+  STYLE_BEACH_CASUAL:
+    camera: "SONY_VENICE"
+    film: "KODAK_PORTRA_400"
+    lighting: "BOUNCED_SOFT"
+    motion: "STEADICAM_SMOOTH"
+    # Minimal director inject - let subject drive the scene
+    prompt_tokens: "score_9, score_8_up, natural lighting, golden hour, relaxed atmosphere, detailed skin"
+    motion_bucket_id: 70   # Same as current test for comparison
+    fps: 8
+    augmentation_level: 0.12

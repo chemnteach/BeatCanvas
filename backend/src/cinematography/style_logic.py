@@ -30,8 +30,9 @@ from src.cinematography.prompt_composer import (
 STYLE_HIGH_VELOCITY_ACTION = "STYLE_HIGH_VELOCITY_ACTION"
 STYLE_URBAN_LUXURY = "STYLE_URBAN_LUXURY"
 STYLE_PHYSICAL_DRAMA = "STYLE_PHYSICAL_DRAMA"
+STYLE_BEACH_CASUAL = "STYLE_BEACH_CASUAL"
 
-ALL_STYLES = [STYLE_HIGH_VELOCITY_ACTION, STYLE_URBAN_LUXURY, STYLE_PHYSICAL_DRAMA]
+ALL_STYLES = [STYLE_HIGH_VELOCITY_ACTION, STYLE_URBAN_LUXURY, STYLE_PHYSICAL_DRAMA, STYLE_BEACH_CASUAL]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -161,6 +162,26 @@ _BASE_DEFINITIONS: Dict[str, StyleDefinition] = {
         ]),
         cfg_scale=6.5,
         steps=35,
+        recommended_checkpoint="STANDARD_CINEMATIC",
+    ),
+    STYLE_BEACH_CASUAL: StyleDefinition(
+        name=STYLE_BEACH_CASUAL,
+        display_name="Beach Casual",
+        description="Relaxed beach scenes - walking, dancing, singing, natural movement",
+        optics=OpticsProfile(
+            camera="SONY_VENICE",
+            film_stock="KODAK_PORTRA_400",
+            lighting="BOUNCED_SOFT",
+            motion="STEADICAM_SMOOTH",
+        ),
+        style_prefix="",  # Director inject replaces this
+        trigger_keywords=frozenset([
+            "beach", "ocean", "sand", "walking", "dancing", "singing",
+            "casual", "relaxed", "natural", "sunset", "golden hour",
+            "waves", "shore", "seaside", "coastal", "summer",
+        ]),
+        cfg_scale=7.5,
+        steps=30,
         recommended_checkpoint="STANDARD_CINEMATIC",
     ),
 }
