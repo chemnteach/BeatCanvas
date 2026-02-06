@@ -1,0 +1,63 @@
+---
+session: beatcanvas-phase8-implementation
+date: 2026-02-06
+status: complete
+outcome: SUCCEEDED
+---
+
+goal: Complete Phase 8.2 AnimateDiff production integration and testing
+now: Integrate AnimateDiff into main.py production pipeline
+test: cd backend && python scripts/render_video_animatediff.py --style STYLE_BEACH_CASUAL --dry-run
+
+done_this_session:
+  - task: Updated continuity ledger with Phase 8.1 and 8.2 progress
+    files: [thoughts/ledgers/CONTINUITY_CLAUDE-beatcanvas-interactive-timeline.md]
+  - task: Optimized prompts for AnimateDiff SD 1.5 (75-token CLIP limit)
+    files: [backend/library/optics_presets.yaml, backend/scripts/render_video_animatediff.py]
+  - task: Created AnimateDiffGenerator production wrapper (454 lines)
+    files: [backend/src/cinematography/animatediff_generator.py, backend/src/cinematography/__init__.py]
+  - task: Tested all 4 production styles successfully
+    files: []
+
+blockers: []
+
+questions: []
+
+decisions:
+  - prompt_optimization: Removed SDXL triggers (score_9, score_8_up), added animatediff_prompt_tokens per style
+  - production_wrapper_pattern: Followed LocalVideoGenerator pattern for consistency with VRAMManager integration
+  - testing_complete: All 4 styles passed (11.7-20.1s gen, 11.4-13.4s RAFT, 4.0GB VRAM, clean 0.3GB shutdown)
+  - next_phase_option_a: Integrate AnimateDiff into main.py production pipeline (recommended path)
+
+findings:
+  - animatediff_performance: 11.7-20.1s generation time for 16 frames, faster than SVD-XT
+  - vram_efficiency: Consistent 4.0GB usage, 20% under 5.6GB estimate, clean shutdown to 0.3GB
+  - prompt_success: Zero truncation warnings across all styles after optimization
+  - quality_improvement: No motion blur or limb deformation compared to SVD-XT
+  - file_size_correlation: HIGH_VELOCITY_ACTION largest (3.6MB), BEACH_CASUAL smallest (1.9MB) - motion complexity correlation
+
+worked:
+  - SD 1.5 optimized prompts (animatediff_prompt_tokens) fit within 75-token limit
+  - VRAMManager integration pattern from LocalVideoGenerator
+  - Seed locking for character consistency
+  - HeartbeatCallback for progress monitoring
+  - RAFT interpolation with 16 frames (vs 25 from SVD)
+
+failed: []
+
+next:
+  - Integrate AnimateDiffGenerator into main.py production pipeline
+  - Replace SVD-XT video generation with AnimateDiff
+  - Update VideoGenerator factory to use AnimateDiff
+  - Test end-to-end workflow: Upload → Storyboard → AnimateDiff → RAFT → 60fps output
+  - Consider multi-format output (Phase 8.4) after production integration validated
+
+files:
+  created:
+    - backend/scripts/render_video_animatediff.py
+    - backend/src/cinematography/animatediff_generator.py
+    - thoughts/shared/handoffs/beatcanvas/2026-02-06_09-15_phase8-plan-enhancements.yaml
+  modified:
+    - backend/library/optics_presets.yaml
+    - backend/src/cinematography/__init__.py
+    - thoughts/ledgers/CONTINUITY_CLAUDE-beatcanvas-interactive-timeline.md
