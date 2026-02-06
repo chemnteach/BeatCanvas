@@ -33,6 +33,7 @@ from src.cinematography.style_logic import (
 from src.cinematography.engine import CinematographyEngine
 from src.cinematography.raft_interpolator import RAFTInterpolator
 from src.cinematography.temporal_consistency import TemporalConsistencySVD
+from src.cinematography.animatediff_generator import AnimateDiffGenerator
 from src.cinematography.physics_motion_tracker import (
     HumanSkeleton,
     LightweightPoseEstimator,
@@ -58,9 +59,10 @@ __all__ = [
     "get_director_inject",
     # Facade
     "CinematographyEngine",
-    # RAFT Interpolation
+    # Video Generation
     "RAFTInterpolator",
     "TemporalConsistencySVD",
+    "AnimateDiffGenerator",
     # AKD Physics Tracking
     "HumanSkeleton",
     "LightweightPoseEstimator",
