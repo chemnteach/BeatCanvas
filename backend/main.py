@@ -40,6 +40,9 @@ for dir_path in [UPLOAD_DIR, OUTPUT_DIR, GENERATED_DIR]:
 # Active tasks storage (in production, use Redis)
 active_tasks = {}
 
+# Feature flag: Use AnimateDiff for video generation (Phase 8.2)
+USE_ANIMATEDIFF = True  # Set to False to use legacy static images + Ken Burns
+
 # Pydantic models for request validation
 class StyleSuggestionRequest(BaseModel):
     content_prompt: str
@@ -1455,13 +1458,51 @@ async def generate_video_pipeline(task_id: str, audio_path: str, visual_prompt: 
         task["storyboard"] = storyboard_dict
         await asyncio.sleep(1)
 
-        # Phase 4: Image Generation
-        task["progress"] = "Generating AI images for each scene..."
-        task["total_scenes"] = len(storyboard_dict)
-        image_generator = MultiProviderImageGenerator()
+        # Phase 4: Video/Image Generation
+        if USE_ANIMATEDIFF:
+            print(f"[DEBUG] Phase 4: AnimateDiff mode enabled, {len(storyboard_dict)} scenes")
+            task["progress"] = "Generating AnimateDiff videos for each scene..."
+            task["total_scenes"] = len(storyboard_dict)
+            from src.video.animatediff_pipeline import AnimateDiffPipeline
 
-        # Generate images for all scenes
-        scene_assets = await image_generator.generate_all_scenes(storyboard_dict, "auto")
+            print(f"[DEBUG] Initializing AnimateDiffPipeline (fps=8, interpolate=False - no blur)")
+            video_pipeline = AnimateDiffPipeline(
+                # Use defaults: 8 FPS, no interpolation for clearer frames
+                heartbeat_callback=None
+            )
+
+            # Generate video clips for all scenes
+            print(f"[DEBUG] Starting generate_all_scenes() for {len(storyboard_dict)} scenes")
+            video_results = video_pipeline.generate_all_scenes(storyboard_dict)
+            print(f"[DEBUG] generate_all_scenes() complete, got {len(video_results)} results")
+            print(f"[DEBUG] Cleaning up pipeline resources")
+            video_pipeline.cleanup()
+
+            # Create video_clips_map for enhanced assembler (timestamp -> video_path)
+            print(f"[DEBUG] Building video_clips_map from {len(video_results)} results")
+            video_clips_map = {}
+            for i, scene_dict in enumerate(storyboard_dict):
+                timestamp = scene_dict['timestamp_start']
+                if i in video_results and 'video_path' in video_results[i]:
+                    video_clips_map[timestamp] = video_results[i]['video_path']
+                    print(f"[DEBUG]   Scene {i}: {timestamp:.2f}s -> {video_results[i]['video_path']}")
+                else:
+                    print(f"[DEBUG]   Scene {i}: MISSING video result")
+
+            print(f"[DEBUG] video_clips_map has {len(video_clips_map)} entries")
+            # Empty scene_assets since we're using pure video (no images)
+            scene_assets = {}
+
+        else:
+            task["progress"] = "Generating AI images for each scene..."
+            task["total_scenes"] = len(storyboard_dict)
+            image_generator = MultiProviderImageGenerator()
+
+            # Generate images for all scenes (legacy)
+            scene_assets = await image_generator.generate_all_scenes(storyboard_dict, "auto")
+
+            # No video clips in legacy mode
+            video_clips_map = {}
 
         # Track generation statistics for frontend visibility
         successful_scenes = 0
@@ -1503,11 +1544,25 @@ async def generate_video_pipeline(task_id: str, audio_path: str, visual_prompt: 
         await asyncio.sleep(1)
 
         # Phase 5: Video Assembly
+        print(f"[DEBUG] Phase 5: Starting video assembly")
         task["progress"] = "Assembling final video with music synchronization..."
         assembler = VideoAssembler()
 
         # Create final video
-        video_path = assembler.create_video(audio_path, scene_assets, storyboard_dict, task_id)
+        if USE_ANIMATEDIFF:
+            print(f"[DEBUG] Using create_video_enhanced with {len(video_clips_map)} video clips")
+            # Use enhanced assembler for video clips
+            video_path = assembler.create_video_enhanced(
+                audio_path,
+                scene_assets,
+                video_clips_map,
+                storyboard_dict,
+                task_id
+            )
+            print(f"[DEBUG] create_video_enhanced complete: {video_path}")
+        else:
+            # Legacy: static images with Ken Burns effects
+            video_path = assembler.create_video(audio_path, scene_assets, storyboard_dict, task_id)
 
         # Complete
         task["status"] = "complete"
@@ -1634,6 +1689,21 @@ class StoryboardExportRequest(BaseModel):
     task_id: str
     format: str = "json"  # "json" or "markdown"
     include_images: bool = False  # Whether to include image paths
+
+@app.get("/api/task-status/{task_id}")
+async def get_task_status(task_id: str):
+    """Get current status of a generation task (for debugging without WebSocket)"""
+    if task_id in active_tasks:
+        task = active_tasks[task_id]
+        return {
+            "task_id": task_id,
+            "status": task.get("status", "unknown"),
+            "progress": task.get("progress", ""),
+            "storyboard_scenes": len(task.get("storyboard", [])),
+            "video_url": task.get("video_url"),
+            "error": task.get("error")
+        }
+    return {"error": "Task not found", "task_id": task_id}
 
 @app.get("/api/export-storyboard/{task_id}")
 async def export_storyboard(task_id: str, format: str = "json", include_images: bool = False):

@@ -33,6 +33,9 @@ class VideoAssembler:
         self.output_dir = Path("output")
         self.output_dir.mkdir(exist_ok=True)
         self.gpu_available = self._check_gpu_encoding()
+        # Temporarily force CPU encoding due to NVENC compatibility issues
+        # TODO: Debug NVENC parameter compatibility with this ffmpeg version
+        self.gpu_available = False  # Force libx264 (CPU) for now
         self.target_resolution = TARGET_RESOLUTION
 
     def _check_gpu_encoding(self) -> bool:
@@ -62,11 +65,8 @@ class VideoAssembler:
                 'codec': 'h264_nvenc',
                 'preset': 'p4',  # NVENC preset (p1=fastest, p7=slowest/best quality)
                 'ffmpeg_params': [
-                    '-rc:v', 'vbr',      # Variable bitrate
-                    '-cq:v', '19',       # Quality level (lower=better, 0-51)
-                    '-b:v', '0',         # Let CQ control bitrate
-                    '-maxrate', '50M',   # Max bitrate cap
-                    '-bufsize', '100M',  # Buffer size
+                    # Use basic NVENC options - most compatible
+                    '-b:v', '10M',       # Target bitrate
                 ]
             }
         else:
