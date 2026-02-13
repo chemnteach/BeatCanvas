@@ -1,9 +1,12 @@
-import openai
+from anthropic import Anthropic
 from typing import List, Dict, Optional
 from dataclasses import dataclass, field
 import os
 import json
 from .conceptor import VisualConcept
+
+# Load environment variables (must happen before API client init)
+from src.utils import env_loader
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # MOTION PROMPT CONFIGURATION - Image-to-Video Upgrade
@@ -68,11 +71,11 @@ class StoryboardScene:
 
 class StoryboardGenerator:
     def __init__(self):
-        api_key = os.getenv("OPENAI_API_KEY")
+        api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
-            raise ValueError("OPENAI_API_KEY environment variable is required")
+            raise ValueError("ANTHROPIC_API_KEY environment variable is required")
 
-        self.client = openai.OpenAI(api_key=api_key)
+        self.client = Anthropic(api_key=api_key)
 
     def create_storyboard(self, music_data: Dict, concept: VisualConcept, scene_timings: List[tuple] = None) -> List[StoryboardScene]:
         """Generate detailed scene-by-scene storyboard"""
@@ -152,7 +155,7 @@ Respond only with valid JSON in the exact format specified."""
         {{
             "description": "Detailed visual description of what's happening in the scene",
             "camera_direction": "specific camera instruction (close-up/wide shot/movement/angle)",
-            "image_prompt": "precise DALL-E prompt for generating this scene (max 1-2 characters, distinct silhouettes)",
+            "image_prompt": "precise AnimateDiff video prompt: front-lit, well-lit faces, visible facial features, bright daylight, colorful clothing, photorealistic. AVOID: silhouettes, backlighting, dark shadows, sunset backlighting",
             "motion_prompt": "AI video motion description matching energy level {energy:.2f}",
             "effects": ["effect1", "effect2"]
         }}
@@ -162,17 +165,17 @@ Respond only with valid JSON in the exact format specified."""
         """
 
         try:
-            response = self.client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt}
-                ],
+            response = self.client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=400,
                 temperature=0.7,
-                max_tokens=400
+                system=system_prompt,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
             )
 
-            response_content = response.choices[0].message.content.strip()
+            response_content = response.content[0].text.strip()
 
             # Extract JSON from response
             if "```json" in response_content:
