@@ -1,0 +1,96 @@
+---
+session: beatcanvas
+date: 2026-02-13
+status: complete
+outcome: PARTIAL_PLUS
+---
+
+goal: Research and select video generation model architecture for BeatCanvas music videos
+now: Set up RunPod deployment with hybrid WAN 2.6 + SkyReels V2 DF pipeline
+test: Deploy test instance on RunPod and generate 2-3 scene test video
+
+done_this_session:
+  - task: Recovered context after computer restart - identified video model research status
+    files: [.claude/cache/agents/oracle/output-skyreels-v3-research-20260209.md, .claude/cache/agents/oracle/output-video-gen-models-sota-2026-02-09.md]
+  - task: Clarified WAN version confusion (WAN 2.6 on Replicate vs WAN 2.2 on HuggingFace)
+    files: [backend/src/cinematography/wan26_cloud_generator.py]
+  - task: Identified critical NSFW hosting constraint and evaluated hosting options
+    files: []
+  - task: Revised priorities based on user input (quality/consistency/stitching A priority, NSFW B priority)
+    files: []
+  - task: Selected hybrid WAN + SkyReels architecture as optimal solution
+    files: []
+
+blockers:
+  - Laptop has only 12GB VRAM (not 16GB as initially thought) - requires external hosting
+  - Replicate blocks NSFW content - cannot use wan-video/wan-2.6-i2v via Replicate API
+  - SkyReels V3 NSFW capability unknown/untested (no community LoRAs yet as of Feb 2026)
+
+questions:
+  - Will SkyReels V2 DF stitching quality meet expectations for seamless music videos?
+  - Is WAN 2.6 NSFW quality acceptable compared to specialized NSFW models?
+  - Should we test pure SkyReels V3 before committing to hybrid approach?
+
+decisions:
+  - model_architecture: "Hybrid WAN 2.6 + SkyReels V2 DF - WAN for scene generation (NSFW-capable, proven), SkyReels DF for seamless stitching (infinite-length architecture)"
+  - hosting_platform: "RunPod A100 40GB (~$1.19/hr) for sequential model loading, or RunPod Serverless for pay-per-second inference"
+  - priority_order: "A priority: quality, character consistency, seamless stitching. B priority: NSFW capability (nice to have, not critical)"
+  - nsfw_approach: "Use WAN 2.6 with NSFW LoRAs (Self Forcing LoRa for 5x speedup). SkyReels V3 NSFW testing deferred until community develops fine-tunes"
+  - cost_target: "~$0.30 per 4-minute video (15-20 min generation on A100 40GB)"
+
+findings:
+  - wan_versions: "WAN 2.2 on HuggingFace (local, 80GB VRAM full / 14-16GB FP8), WAN 2.6 on Replicate (cloud API, latest version with multi-shot storytelling)"
+  - skyreels_benchmarks: "SkyReels V2 highest benchmark scores (83.9% VBench total, 84.7% quality) - approaching Kling 1.6 and Runway Gen-4"
+  - character_consistency: "SkyReels V3 R2V 'excellent' with reference images (1-4 images → consistent character across scenes). WAN 2.6 'good' via LoRAs only"
+  - seamless_stitching: "SkyReels V2 DF uses Autoregressive Diffusion-Forcing (not clip stitching) - each segment conditioned on previous frames. Some scene drift over long durations but manageable for 4-min videos"
+  - nsfw_track_record: "WAN 2.2/2.6 proven NSFW (no built-in filters, community LoRAs). SkyReels V3 untested (training data likely excludes NSFW, no LoRAs available)"
+  - hosting_constraints: "Replicate/HuggingFace Inference/apifree.ai block NSFW. RunPod/VastAI/Lambda Labs/Paperspace allow NSFW (self-hosted GPU)"
+
+worked:
+  - Systematic research via oracle agent cached results (comprehensive model comparison, NSFW documentation, benchmark scores)
+  - Clarifying user priorities before making recommendations (quality vs NSFW vs cost)
+  - Hybrid architecture leverages strengths of both models (WAN proven NSFW + SkyReels seamless stitching)
+
+failed:
+  - Initially recommended WAN 2.6 via Replicate (doesn't support NSFW due to platform policies)
+  - Assumed 16GB VRAM available (actually 12GB, makes local WAN 2.2 FP8 even more risky)
+  - Initially prioritized NSFW over quality (user clarified quality is A priority)
+
+next:
+  - Create RunPod account and set up A100 40GB instance
+  - Deploy WAN 2.6 FP8 model on RunPod (test NSFW scene generation quality)
+  - Deploy SkyReels V2 DF-14B FP8 model on RunPod (test stitching of WAN clips)
+  - Update wan26_cloud_generator.py to point to RunPod endpoint instead of Replicate
+  - Create hybrid_video_generator.py wrapper that orchestrates WAN scene gen + SkyReels stitching
+  - Wire hybrid generator into main.py with feature flag (USE_HYBRID_GENERATOR = True)
+  - Test end-to-end with 2-3 scene test video (verify quality, NSFW capability, stitching)
+  - Benchmark actual costs and generation times on RunPod
+
+files:
+  created:
+    - thoughts/shared/handoffs/beatcanvas/2026-02-13_05-58_video-gen-model-selection.yaml
+  modified:
+    - backend/src/storyboard/generator.py (OpenAI → Anthropic Claude migration in progress)
+    - backend/src/video/animatediff_pipeline.py (AnimateDiff-Lightning quality fixes)
+  existing_ready:
+    - backend/src/cinematography/wan26_cloud_generator.py (ready, needs endpoint update)
+    - backend/src/cinematography/cogvideox_generator.py (alternative option, CogVideoX-5B)
+    - backend/src/video/animatediff_pipeline.py (current working generator, 12GB VRAM)
+
+context:
+  current_phase: "Phase 8.4 complete (AnimateDiff integration working). Planning Phase 9: WAN/SkyReels hybrid deployment"
+  vram_constraint: "12GB RTX 5070 Ti (not 16GB) - insufficient for WAN 2.2 FP8 (14-16GB) or SkyReels (24-30GB FP8)"
+  cost_comparison: "AnimateDiff local: FREE. WAN 2.6 Replicate: $2-5/video (NSFW blocked). Hybrid RunPod: $0.30/video (NSFW OK)"
+  quality_tiers: "AnimateDiff < WAN 2.6 < SkyReels V3 (benchmarks). Hybrid leverages WAN proven NSFW + SkyReels seamless stitching"
+
+research_artifacts:
+  - .claude/cache/agents/oracle/output-skyreels-v3-research-20260209.md (comprehensive SkyReels analysis)
+  - .claude/cache/agents/oracle/output-skyreels-video-examples.md (video examples and demos)
+  - .claude/cache/agents/oracle/output-video-gen-models-sota-2026-02-09.md (model comparison rankings)
+  - .claude/cache/agents/oracle/output-wan26-video-examples-2026-02-11.md (WAN examples)
+
+deployment_plan:
+  phase_1_test_wan: "RunPod A6000 48GB ($0.50/hr) - Deploy WAN 2.6 FP8, generate 2-3 test scenes, verify NSFW quality"
+  phase_2_test_skyreels_df: "Same A6000 - Deploy SkyReels V2 DF-14B FP8, stitch WAN clips, evaluate seamlessness"
+  phase_3_production: "RunPod A100 40GB ($1.19/hr) sequential or Serverless pay-per-second - Hybrid pipeline"
+  alternative_pure_skyreels: "If SkyReels V3 NSFW testing shows acceptable quality, simplify to pure SkyReels V3 R2V + V2 DF"
