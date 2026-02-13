@@ -1,0 +1,164 @@
+---
+session: beatcanvas
+date: 2026-02-13
+status: complete
+outcome: SUCCEEDED
+---
+
+goal: Implement local code changes for RunPod hybrid WAN 2.6 + SkyReels V2 DF pipeline
+now: Deploy to RunPod - create pod, download models, configure endpoint, test 2-3 scene video
+test: python -m pytest backend/tests/ (once tests written); manual test via RunPod deployment
+
+done_this_session:
+  - task: Created RunPodHybridGenerator orchestrator for laptop → RunPod communication
+    files: [backend/src/cinematography/runpod_hybrid_generator.py]
+  - task: Created SkyReelsDFGenerator wrapper for infinite-length video stitching
+    files: [backend/src/cinematography/skyreels_df_generator.py]
+  - task: Updated WAN26CloudGenerator to support both Replicate and RunPod endpoints
+    files: [backend/src/cinematography/wan26_cloud_generator.py]
+  - task: Added RunPod API endpoints and feature flag to main FastAPI app
+    files: [backend/main.py]
+  - task: Updated environment configuration template with RunPod settings
+    files: [backend/.env.example]
+  - task: Committed and pushed all changes to GitHub
+    files: [commit 7703c20]
+
+blockers: []
+
+questions:
+  - Will SkyReels V2 DF stitching meet quality expectations in practice? (test needed)
+  - Is 20 min generation time acceptable for 4-min video? (benchmark needed)
+  - Should we implement retry logic for RunPod API timeouts?
+
+decisions:
+  - code_architecture: "3-layer design: runpod_hybrid_generator.py (laptop orchestrator), main.py endpoints (pod API), generator wrappers (model abstraction)"
+  - endpoint_configuration: "Environment variable based (RUNPOD_ENDPOINT_URL, USE_RUNPOD_HYBRID) for easy deployment switching"
+  - wan_generator_flexibility: "wan26_cloud_generator.py supports both Replicate and RunPod modes, auto-detects based on environment variables"
+  - skyreels_fallback: "Simple concatenation fallback implemented while full SkyReels DF API integration pending"
+
+findings:
+  - file_organization: "All video generation models now in backend/src/cinematography/ directory for clear separation from image generation"
+  - api_design: "RunPod pod endpoints mirror local API structure (/api/generate-wan, /api/stitch-skyreels) for consistency"
+  - feature_flags: "USE_RUNPOD_HYBRID flag enables gradual rollout alongside existing AnimateDiff pipeline"
+  - network_architecture: "Models stored ON RunPod (not local), laptop sends HTTP requests, pod returns video URLs"
+
+worked:
+  - Modular generator design allows swapping between Replicate and RunPod without code changes
+  - Feature flag approach enables testing without disrupting existing AnimateDiff workflow
+  - Comprehensive environment configuration makes deployment straightforward
+  - Git commits properly organized (separate commits for Claude migration, AnimateDiff fixes, RunPod implementation)
+
+failed: []
+
+next:
+  - Create RunPod account at runpod.io, add credits ($25-50 to start)
+  - Create 100GB network volume for persistent model storage ($7/month)
+  - Deploy A100 40GB pod with PyTorch template
+  - SSH into pod, clone BeatCanvas repo from GitHub
+  - Download models to /workspace: WAN 2.6 FP8 (~14GB), SkyReels V2 DF-14B FP8 (~28GB)
+  - Install dependencies: pip install -r backend/requirements.txt
+  - Start API server on pod: uvicorn main:app --host 0.0.0.0 --port 8000
+  - Get RunPod proxy URL (e.g., https://abc123-8000.proxy.runpod.net)
+  - Add to ~/.claude/.env: RUNPOD_ENDPOINT_URL and USE_RUNPOD_HYBRID=true
+  - Test health check: curl $RUNPOD_ENDPOINT_URL/api/health
+  - Generate 2-3 scene test video to verify quality, stitching, and costs
+  - Benchmark actual generation times and costs vs estimates
+  - Document any issues or optimizations needed
+
+files:
+  created:
+    - backend/src/cinematography/runpod_hybrid_generator.py (254 lines - main orchestrator)
+    - backend/src/cinematography/skyreels_df_generator.py (165 lines - DF stitching wrapper)
+    - backend/src/cinematography/wan26_cloud_generator.py (316 lines - WAN 2.6 generator)
+    - thoughts/shared/handoffs/beatcanvas/2026-02-13_06-26_runpod-code-implementation.yaml
+  modified:
+    - backend/main.py (+111 lines - USE_RUNPOD_HYBRID flag, 3 API endpoints)
+    - backend/.env.example (+4 lines - RUNPOD_ENDPOINT_URL config)
+
+context:
+  phase: "Phase 9: RunPod hybrid deployment - Code complete, deployment pending"
+  previous_work: "Phase 8.4 complete (AnimateDiff working). Previous session researched models and selected hybrid WAN + SkyReels architecture."
+  architecture_recap: "Hybrid WAN 2.6 (scene generation) + SkyReels V2 DF (seamless stitching). WAN proven NSFW-capable, SkyReels has highest benchmarks (83.9% VBench)."
+  cost_estimates: "~$0.30 per 4-min video (20 min @ $1.19/hr on A100 40GB). Network volume $7/month. Total ~$11/month for 10 videos."
+  quality_priorities: "A priority: quality, character consistency, seamless stitching. B priority: NSFW capability (nice to have)."
+
+implementation_details:
+  runpod_hybrid_generator:
+    purpose: "Laptop-side orchestrator - sends HTTP to RunPod, handles workflow"
+    key_methods:
+      - "generate_video(scenes, audio_path, quality_tier) - full pipeline orchestration"
+      - "_upload_audio(audio_path) - POST /api/upload-audio"
+      - "_generate_wan_scene(prompt, scene_index) - POST /api/generate-wan"
+      - "_stitch_skyreels(scene_urls, audio_url) - POST /api/stitch-skyreels"
+      - "_download_video(video_url) - downloads final result to local output/"
+
+  skyreels_df_generator:
+    purpose: "Runs ON RunPod pod - loads SkyReels V2 DF model for stitching"
+    status: "Currently uses simple concatenation fallback - full DF API integration pending"
+    vram: "Requires 14-24GB VRAM (A100 40GB or A6000 48GB)"
+
+  wan26_cloud_generator:
+    purpose: "Flexible WAN 2.6 generator - supports Replicate API or RunPod endpoint"
+    modes:
+      replicate: "REPLICATE_API_TOKEN set - uses Replicate cloud API (blocks NSFW)"
+      runpod: "RUNPOD_ENDPOINT_URL set - uses self-hosted RunPod endpoint (NSFW OK)"
+
+  main_py_endpoints:
+    generate_wan: "POST /api/generate-wan - generates single scene with WAN 2.6"
+    stitch_skyreels: "POST /api/stitch-skyreels - stitches scenes with SkyReels DF"
+    upload_audio: "POST /api/upload-audio - uploads audio to RunPod for sync"
+
+deployment_checklist:
+  prerequisites:
+    - "RunPod account created with credits"
+    - "Network volume created (100GB recommended)"
+    - "SSH access configured"
+
+  pod_setup:
+    - "Deploy A100 40GB pod with PyTorch 2.x template"
+    - "Attach network volume to /workspace"
+    - "Clone repo: git clone https://github.com/chemnteach/BeatCanvas.git"
+    - "Install deps: pip install fastapi uvicorn diffusers torch transformers moviepy replicate opencv-python requests"
+
+  model_downloads:
+    - "WAN 2.6: huggingface-cli download wan-video/wan-2.6-i2v --local-dir /workspace/models/wan-2.6"
+    - "SkyReels DF: huggingface-cli download SkyworkAI/SkyReels-V2-DF-14B --local-dir /workspace/models/skyreels-df"
+    - "Total size: ~42GB (WAN 14GB + SkyReels 28GB)"
+
+  start_server:
+    - "cd BeatCanvas/backend"
+    - "uvicorn main:app --host 0.0.0.0 --port 8000"
+    - "Get proxy URL from RunPod dashboard"
+
+  local_config:
+    - "Add to ~/.claude/.env: RUNPOD_ENDPOINT_URL=https://your-pod-8000.proxy.runpod.net"
+    - "Add to ~/.claude/.env: USE_RUNPOD_HYBRID=true"
+    - "Test: curl $RUNPOD_ENDPOINT_URL/api/health"
+
+  testing:
+    - "Generate 2-3 scene test video (6-9 scenes for professional tier)"
+    - "Verify WAN scene quality (resolution, lighting, character consistency)"
+    - "Verify SkyReels stitching (seamless transitions, no jarring cuts)"
+    - "Benchmark generation time (target: 20 min for 4-min video)"
+    - "Calculate actual cost (target: $0.30 per 4-min video)"
+
+github_commits:
+  - "7703c20: Phase 9: Add RunPod hybrid WAN 2.6 + SkyReels V2 DF pipeline"
+  - "758ccd7: Update handoff with RunPod deployment workflow details"
+  - "8757d84: Fix AnimateDiff-Lightning guidance scale to prevent hallucinations"
+  - "f1f8195: Migrate storyboard generation to Claude 3.5 Sonnet"
+  - "a01c520: Add video generation model selection handoff"
+
+related_files:
+  handoffs:
+    - thoughts/shared/handoffs/beatcanvas/2026-02-13_05-58_video-gen-model-selection.yaml (model research and selection)
+  research:
+    - .claude/cache/agents/oracle/output-skyreels-v3-research-20260209.md (SkyReels analysis)
+    - .claude/cache/agents/oracle/output-video-gen-models-sota-2026-02-09.md (model comparison)
+
+notes:
+  - "Full SkyReels V2 DF API integration still pending - check SkyReels GitHub for latest API: https://github.com/SkyworkAI/SkyReels-V2"
+  - "WAN 2.6 NSFW capability proven by community but untested in this pipeline - verify during testing"
+  - "Consider implementing retry logic for RunPod API timeouts (600s currently)"
+  - "May need to optimize model loading strategy if switching between WAN and SkyReels is slow"
+  - "Network volume persists models between pod stops - no need to re-download unless models updated"
