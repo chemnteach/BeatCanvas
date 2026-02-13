@@ -197,7 +197,9 @@ class AnimateDiffPipeline:
         # Get style config
         style_def = get_style_definition(style)
         if style_def:
-            cfg = style_def.cfg_scale
+            # AnimateDiff-Lightning requires LOW guidance scale (1.0-2.0)
+            # Style definitions use 6.5-8.0 which causes hallucinations!
+            cfg = 1.0  # Force AnimateDiff-Lightning optimal value
             num_frames = 16  # AnimateDiff default
         else:
             cfg = 1.0
@@ -211,7 +213,7 @@ class AnimateDiffPipeline:
         # Generate with AnimateDiff
         frames = self.animatediff.generate(
             prompt=prompt,
-            negative_prompt="blurry, low quality, deformed, fused limbs",
+            negative_prompt="silhouette, backlit, dark, shadowy, sunset backlighting, contre-jour, rim lighting, underexposed, low light, blurry, low quality, deformed, fused limbs",
             num_frames=num_frames,
             guidance_scale=cfg,
             seed=42 + scene_index,  # Seed variation per scene
