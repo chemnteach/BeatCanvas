@@ -43,6 +43,11 @@ active_tasks = {}
 # Feature flag: Use AnimateDiff for video generation (Phase 8.2)
 USE_ANIMATEDIFF = True  # Set to False to use legacy static images + Ken Burns
 
+# Feature flag: Use RunPod hybrid WAN + SkyReels pipeline (Phase 9)
+# When True, routes video generation to RunPod for WAN 2.6 + SkyReels V2 DF
+# Requires RUNPOD_ENDPOINT_URL in environment
+USE_RUNPOD_HYBRID = os.getenv('USE_RUNPOD_HYBRID', 'false').lower() == 'true'
+
 # Pydantic models for request validation
 class StyleSuggestionRequest(BaseModel):
     content_prompt: str
@@ -1996,6 +2001,111 @@ async def set_cinematic_mode(task_id: str, settings: CinematicModeRequest):
         "settings": settings.dict(),
         "message": "Cinematic processing settings updated"
     }
+
+# ============================================================================
+# RunPod Hybrid WAN + SkyReels API Endpoints (Phase 9)
+# These endpoints run ON the RunPod pod, not locally
+# ============================================================================
+
+class GenerateWANSceneRequest(BaseModel):
+    prompt: str
+    scene_index: int
+    audio_segment: Optional[str] = None
+    resolution: str = "720p"
+    fps: int = 24
+    duration: float = 5.0
+
+class StitchSkyReelsRequest(BaseModel):
+    scene_urls: List[str]
+    audio_url: str
+    method: str = "diffusion_forcing"
+    output_fps: int = 24
+
+@app.post("/api/generate-wan")
+async def generate_wan_scene(request: GenerateWANSceneRequest):
+    """
+    Generate single scene with WAN 2.6 (RunPod endpoint).
+    This endpoint runs ON the RunPod pod, not locally.
+    """
+    try:
+        from src.cinematography.wan26_cloud_generator import WAN26CloudGenerator
+
+        generator = WAN26CloudGenerator()
+
+        # Generate scene video
+        video_path = await generator.generate_scene(
+            prompt=request.prompt,
+            scene_index=request.scene_index,
+            audio_segment=request.audio_segment,
+            resolution=request.resolution,
+            fps=request.fps,
+            duration=request.duration
+        )
+
+        # Return video URL (accessible via RunPod proxy)
+        return {
+            "video_url": f"/videos/{Path(video_path).name}",
+            "status": "success"
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"WAN generation failed: {str(e)}")
+
+@app.post("/api/stitch-skyreels")
+async def stitch_skyreels(request: StitchSkyReelsRequest):
+    """
+    Stitch scenes into seamless video using SkyReels V2 DF (RunPod endpoint).
+    This endpoint runs ON the RunPod pod, not locally.
+    """
+    try:
+        from src.cinematography.skyreels_df_generator import SkyReelsDFGenerator
+
+        generator = SkyReelsDFGenerator()
+
+        # Convert URLs to local paths (assuming videos are already on RunPod)
+        scene_paths = [url.replace("/videos/", "output/") for url in request.scene_urls]
+        audio_path = request.audio_url.replace("/audio/", "data/uploads/")
+
+        # Generate stitched video
+        output_path = f"output/stitched_{uuid.uuid4().hex}.mp4"
+        final_video = generator.stitch_videos(
+            video_clips=scene_paths,
+            output_path=output_path,
+            audio_path=audio_path,
+            target_fps=request.output_fps
+        )
+
+        # Return final video URL
+        return {
+            "final_video_url": f"/videos/{Path(final_video).name}",
+            "status": "success"
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"SkyReels stitching failed: {str(e)}")
+
+@app.post("/api/upload-audio")
+async def upload_audio(audio: UploadFile = File(...)):
+    """
+    Upload audio file to RunPod for hybrid pipeline.
+    This endpoint runs ON the RunPod pod, not locally.
+    """
+    try:
+        # Save uploaded audio
+        audio_filename = f"audio_{uuid.uuid4().hex}{Path(audio.filename).suffix}"
+        audio_path = UPLOAD_DIR / audio_filename
+
+        with open(audio_path, "wb") as f:
+            content = await audio.read()
+            f.write(content)
+
+        return {
+            "audio_url": f"/audio/{audio_filename}",
+            "status": "success"
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Audio upload failed: {str(e)}")
 
 # Serve generated images
 app.mount("/data/generated_images", StaticFiles(directory=str(GENERATED_DIR)), name="generated_images")
