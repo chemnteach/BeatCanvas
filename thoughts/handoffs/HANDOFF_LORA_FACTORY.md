@@ -1,7 +1,7 @@
 # Handoff: LoRA Factory Pipeline Complete
 
 **Date**: 2026-02-15
-**Status**: Tools built, ai-toolkit installed on desktop, ready for first training on laptop
+**Status**: Tools built, datasets collected (240 images), pushed to GitHub, ready for training on laptop
 
 ## What Was Built
 
@@ -28,6 +28,22 @@
 
 ### LoRA Registry (`backend/config/loras.yaml`)
 Expanded with full Trop Rock library: 7 scene LoRAs + 2 style LoRAs + character template. All `enabled: false` until trained.
+
+### Datasets Collected (in `datasets/`, pushed to GitHub)
+All 8 Trop Rock datasets pre-collected from Pexels — 240 images, 55MB total:
+
+| Dataset | Images | Size |
+|---------|--------|------|
+| tiki-bar-interior | 30 | 5.5MB |
+| beach-sunset | 30 | 6.6MB |
+| boat-deck | 30 | 6.6MB |
+| ocean-underwater | 30 | 11MB |
+| beach-bar-exterior | 30 | 11MB |
+| stage-performance | 30 | 5.0MB |
+| bonfire-beach | 30 | 4.8MB |
+| 70s-film-retro | 30 | 5.1MB |
+
+**On laptop**: `git pull` gets all datasets. Skip straight to captioning + training.
 
 ## Hardware Situation (CORRECTED)
 
@@ -87,8 +103,8 @@ cat ~/.claude/.env | grep PEXELS
 ```bash
 cd BeatCanvas
 
-# Full pipeline: collect → caption → config → train
-bash tools/train_lora.sh --name beach-sunset --query "tropical beach sunset ocean" --type scene --vram 12
+# Datasets already in repo — skip collection, just caption + config + train
+bash tools/train_lora.sh --name beach-sunset --skip-collect --type scene --vram 12
 
 # Expected time: ~1-2 hours for 2500 steps on 12GB VRAM
 # Output: output/loras/beach-sunset/beach-sunset.safetensors
@@ -96,8 +112,11 @@ bash tools/train_lora.sh --name beach-sunset --query "tropical beach sunset ocea
 
 ### Step 5: Batch All Trop Rock LoRAs (Overnight)
 ```bash
-bash tools/train_lora.sh --batch
-# Trains all 8 LoRAs sequentially. ~8-16 hours total.
+# For batch with pre-collected datasets, run each with --skip-collect:
+for name in tiki-bar-interior beach-sunset boat-deck ocean-underwater beach-bar-exterior stage-performance bonfire-beach 70s-film-retro; do
+  bash tools/train_lora.sh --name $name --skip-collect --vram 12
+done
+# ~8-16 hours total.
 ```
 
 ## Known Issues / Workarounds
@@ -107,6 +126,8 @@ bash tools/train_lora.sh --batch
 2. **MarkupSafe source build**: If MarkupSafe errors about `_native` module, run `pip install --force-reinstall markupsafe`
 
 3. **PyTorch version**: 2.7.0 not available for cu124 yet. Use 2.6.0.
+
+4. **Pexels API Cloudflare 403 (error 1010)**: Fixed — `pexels_collector.py` now sends `User-Agent` header on search requests. Already committed.
 
 ## File Map
 

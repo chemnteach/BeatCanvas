@@ -75,9 +75,11 @@ Create a complete standalone music video storyboard generator called "BeatCanvas
 - [x] **SONG ANALYSIS: Love and Saltwater** - librosa + Whisper transcription, LoRA gap analysis complete
 - [x] **AI-TOOLKIT INSTALLED** - Desktop (c:\src\Synterra\ai-toolkit), PyTorch 2.6.0+cu124, all deps resolved
 - [x] **HARDWARE VERIFIED** - Desktop=4GB VRAM (collection only), Laptop=12GB VRAM (training machine)
+- [x] **DATASETS COLLECTED** - All 8 Trop Rock datasets downloaded from Pexels (240 images, 55MB total)
+- [x] **PEXELS COLLECTOR BUG FIX** - Added User-Agent header to fix Cloudflare 403 (error 1010)
 
 ### 🎯 Current Status: READY FOR FIRST LORA TRAINING ON LAPTOP
-**All tools built and tested on desktop. Laptop (12GB VRAM) is the training machine. Need to clone repos + install deps there.**
+**All tools built, datasets collected, pushed to GitHub. Laptop needs: git pull → install ai-toolkit → run training.**
 
 ### 📋 Tech Debt Summary (see thoughts/TECH_DEBT.md)
 | Priority | Items | Examples |
@@ -202,11 +204,11 @@ Phase 5: TRAIN — Image LoRAs local, Video LoRAs RunPod A100
 ## Next Session Priorities
 
 ### Immediate (On Laptop — 12GB VRAM)
-1. **Clone BeatCanvas** from GitHub (has all tools/ scripts)
+1. **Clone BeatCanvas** from GitHub — datasets/ included (55MB, 240 images pre-collected)
 2. **Clone ai-toolkit** as sibling: `git clone https://github.com/ostris/ai-toolkit.git`
 3. **Install deps** — PyTorch 2.6.0+cu124, ai-toolkit requirements (see HANDOFF for exact steps)
 4. **PEXELS_API_KEY** already in ~/.claude/.env ✅
-5. **Test first LoRA end-to-end**: `bash tools/train_lora.sh --name beach-sunset --query "tropical beach sunset ocean" --type scene --vram 12`
+5. **Train first LoRA** (datasets already there, skip collection): `bash tools/train_lora.sh --name beach-sunset --skip-collect --type scene --vram 12`
 6. Validate trained .safetensors loads and produces expected output
 
 ### Next Phase (Scale Up)
