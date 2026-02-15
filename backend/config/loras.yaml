@@ -1,34 +1,165 @@
 # --- BEATCANVAS LORA REGISTRY ---
-# The Director (Phi-3) reads this file to know what tools are available.
+# The LoRA Curator reads this file to match scenes to available LoRAs.
 # To add a new LoRA, just add a block here. No coding required.
+#
+# Fields:
+#   description  - What this LoRA does (shown to user in storyboard editor)
+#   type         - style | scene | character | motion
+#   triggers     - Keywords that match this LoRA to a scene prompt
+#   file         - Path to .safetensors file (relative to output/loras/)
+#   default_weight - Strength when applied (0.0-1.0)
+#   enabled      - Set to true once the .safetensors file exists
+#   source       - custom | civitai | huggingface (where it came from)
+#   civitai_id   - CivitAI model ID (for auto-download)
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# GENERIC STYLE LORAS (work across many scenes)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 cinema:
   description: "Film-quality lighting, lens effects, depth of field"
+  type: style
   triggers: ["dramatic", "epic", "movie", "widescreen", "anamorphic", "bokeh"]
+  file: null
   default_weight: 0.8
   enabled: true
+  source: generic
 
 night:
   description: "Dark environments, neon lighting, urban night scenes"
+  type: style
   triggers: ["night", "neon", "club", "concert", "cyberpunk", "rain", "dark"]
+  file: null
   default_weight: 0.7
   enabled: true
+  source: generic
 
 detail:
   description: "Extreme detail, skin texture, fabric weave, close-ups"
+  type: style
   triggers: ["close-up", "portrait", "texture", "detail", "macro", "realism"]
+  file: null
   default_weight: 0.6
   enabled: true
+  source: generic
 
-# --- Placeholders (Enabled=False until you download them) ---
-dreamy:
-  description: "Soft focus, ethereal glow, pastel tones, romantic"
-  triggers: ["dream", "soft", "ethereal", "fantasy"]
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# TROP ROCK SCENE LORAS (trained with tools/train_lora.sh)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+tiki-bar-interior:
+  description: "Tropical tiki bar with bamboo, thatch roof, colorful drinks"
+  type: scene
+  triggers: ["tiki", "bar", "bamboo", "tropical drinks", "island bar"]
+  file: "tiki-bar-interior/tiki-bar-interior.safetensors"
   default_weight: 0.7
   enabled: false
+  source: custom
+
+beach-sunset:
+  description: "Tropical beach at golden hour, ocean sunset, warm tones"
+  type: scene
+  triggers: ["beach", "sunset", "golden hour", "ocean", "tropical", "shore"]
+  file: "beach-sunset/beach-sunset.safetensors"
+  default_weight: 0.7
+  enabled: false
+  source: custom
+
+boat-deck:
+  description: "Boat deck, yacht, sailing on open ocean"
+  type: scene
+  triggers: ["boat", "yacht", "sailing", "deck", "ocean", "sea"]
+  file: "boat-deck/boat-deck.safetensors"
+  default_weight: 0.7
+  enabled: false
+  source: custom
+
+ocean-underwater:
+  description: "Underwater ocean, coral reef, tropical fish"
+  type: scene
+  triggers: ["underwater", "coral", "reef", "fish", "diving", "ocean floor"]
+  file: "ocean-underwater/ocean-underwater.safetensors"
+  default_weight: 0.7
+  enabled: false
+  source: custom
+
+beach-bar-exterior:
+  description: "Beach bar exterior, palm trees, tropical outdoor bar"
+  type: scene
+  triggers: ["beach bar", "palm", "outdoor bar", "cabana", "palapa"]
+  file: "beach-bar-exterior/beach-bar-exterior.safetensors"
+  default_weight: 0.7
+  enabled: false
+  source: custom
+
+stage-performance:
+  description: "Live music performance, stage lighting, concert"
+  type: scene
+  triggers: ["stage", "performance", "concert", "live music", "guitar", "band"]
+  file: "stage-performance/stage-performance.safetensors"
+  default_weight: 0.7
+  enabled: false
+  source: custom
+
+bonfire-beach:
+  description: "Beach bonfire at night, flames, party gathering"
+  type: scene
+  triggers: ["bonfire", "campfire", "fire", "beach night", "flames"]
+  file: "bonfire-beach/bonfire-beach.safetensors"
+  default_weight: 0.7
+  enabled: false
+  source: custom
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# STYLE LORAS (trained or downloaded)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+70s-film-retro:
+  description: "1970s vintage film photography, warm grain, faded tones"
+  type: style
+  triggers: ["70s", "vintage", "retro", "film grain", "1970s", "nostalgic"]
+  file: "70s-film-retro/70s-film-retro.safetensors"
+  default_weight: 0.6
+  enabled: false
+  source: custom
+
+european-beach-natural:
+  description: "European beach aesthetic, tasteful artistic framing, Mediterranean light"
+  type: style
+  triggers: ["european beach", "mediterranean", "naturist", "tasteful"]
+  file: "european-beach-natural/european-beach-natural.safetensors"
+  default_weight: 0.6
+  enabled: false
+  source: custom
+
+dreamy:
+  description: "Soft focus, ethereal glow, pastel tones, romantic"
+  type: style
+  triggers: ["dream", "soft", "ethereal", "fantasy"]
+  file: null
+  default_weight: 0.7
+  enabled: false
+  source: generic
 
 gritty:
   description: "Film grain, desaturated, raw, documentary feel"
+  type: style
   triggers: ["raw", "grain", "documentary", "rough"]
+  file: null
   default_weight: 0.6
   enabled: false
+  source: generic
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# CHARACTER LORAS (per-artist, trained on artist photos)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Add artist LoRAs here as they're trained:
+#
+# artist-rob-hill:
+#   description: "Rob Hill - musician identity"
+#   type: character
+#   triggers: ["rob hill", "ohwx"]
+#   file: "artist-rob-hill/artist-rob-hill.safetensors"
+#   default_weight: 0.8
+#   enabled: false
+#   source: custom
