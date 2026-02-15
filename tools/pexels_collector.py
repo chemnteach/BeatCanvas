@@ -64,6 +64,7 @@ def search_pexels(
 
     req = urllib.request.Request(url)
     req.add_header("Authorization", api_key)
+    req.add_header("User-Agent", "BeatCanvas-LoRA-Collector/1.0")
 
     try:
         with urllib.request.urlopen(req) as response:
