@@ -2150,3 +2150,137 @@ if frontend_build_path.exists():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8002, reload=False)
+
+# ============================================================================
+# Animation Workflow Endpoints (Generic for ANY music video)
+# ============================================================================
+
+from pydantic import BaseModel
+class AnimationProjectRequest(BaseModel):
+    task_id: str
+    audio_path: str
+    animation_style: str
+    protagonist_lora: Optional[str] = None
+    supporting_loras: Optional[List[str]] = None
+    scene_loras: Optional[List[str]] = None
+    style_lora: Optional[str] = None
+    quality_tier: str = "professional"
+    use_stock_footage: bool = False
+    fps: int = 24
+    width: int = 1024
+    height: int = 1024
+
+@app.get("/api/animation/styles")
+async def list_animation_styles():
+    """List all 16 animation styles"""
+    from src.animation.rotoscope_generator import ANIMATION_STYLES
+    
+    styles = []
+    for name, config in ANIMATION_STYLES.items():
+        styles.append({
+            "name": name,
+            "display_name": name.replace("_", " ").title(),
+            "description": config["prompt_suffix"],
+            "best_for": config.get("best_for", "Various genres")
+        })
+    
+    return {"styles": styles, "total": len(styles)}
+
+@app.get("/api/animation/loras")
+async def list_character_loras():
+    """List available character LoRAs"""
+    import yaml
+    registry_path = Path("backend/config/loras.yaml")
+    
+    if not registry_path.exists():
+        return {"character_loras": [], "scene_loras": [], "style_loras": []}
+    
+    with open(registry_path, 'r') as f:
+        registry = yaml.safe_load(f)
+    
+    character_loras = []
+    scene_loras = []
+    style_loras = []
+    
+    for name, config in registry.items():
+        if not config.get('enabled', False):
+            continue
+        
+        lora_info = {
+            "name": name,
+            "type": config.get("type"),
+            "description": config.get("description", "")
+        }
+        
+        if config.get("type") == "character":
+            character_loras.append(lora_info)
+        elif config.get("type") == "scene":
+            scene_loras.append(lora_info)
+        elif config.get("type") == "style":
+            style_loras.append(lora_info)
+    
+    return {
+        "character_loras": character_loras,
+        "scene_loras": scene_loras,
+        "style_loras": style_loras
+    }
+
+@app.post("/api/animation/generate")
+async def generate_animation_video(request: AnimationProjectRequest):
+    """Generate animated music video"""
+    try:
+        from src.animation.animation_workflow import AnimationWorkflow, AnimationProjectConfig
+        
+        config = AnimationProjectConfig(
+            project_name=f"project_{request.task_id[:8]}",
+            audio_path=request.audio_path,
+            animation_style=request.animation_style,
+            quality_tier=request.quality_tier,
+            protagonist_lora=request.protagonist_lora,
+            supporting_loras=request.supporting_loras,
+            scene_loras=request.scene_loras,
+            style_lora=request.style_lora,
+            use_stock_footage=request.use_stock_footage,
+            fps=request.fps,
+            width=request.width,
+            height=request.height
+        )
+        
+        # Run workflow in background
+        asyncio.create_task(run_animation_workflow_bg(request.task_id, config))
+        
+        return {
+            "task_id": request.task_id,
+            "status": "started",
+            "animation_style": request.animation_style
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def run_animation_workflow_bg(task_id: str, config):
+    """Background animation workflow"""
+    from src.animation.animation_workflow import AnimationWorkflow
+    
+    try:
+        if task_id not in active_tasks:
+            active_tasks[task_id] = {"id": task_id, "status": "animating"}
+        
+        task = active_tasks[task_id]
+        task["progress"] = "Running animation workflow..."
+        
+        workflow = AnimationWorkflow()
+        result = await workflow.run_workflow(config)
+        
+        if result.success:
+            task["status"] = "complete"
+            task["video_url"] = f"/api/download/{task_id}_animation"
+            task["output_path"] = result.output_video_path
+        else:
+            task["status"] = "error"
+            task["progress"] = f"Error: {result.error}"
+    
+    except Exception as e:
+        active_tasks[task_id]["status"] = "error"
+        active_tasks[task_id]["progress"] = str(e)
+
