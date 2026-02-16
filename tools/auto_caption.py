@@ -65,7 +65,10 @@ def caption_with_florence2(
 
     processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
     model = AutoModelForCausalLM.from_pretrained(
-        model_id, torch_dtype=dtype, trust_remote_code=True
+        model_id,
+        torch_dtype=dtype,
+        trust_remote_code=True,
+        attn_implementation="eager"  # Fix for transformers 4.57+ compatibility
     ).to(device)
 
     print(f"Florence-2 loaded on {device} ({dtype})")

@@ -45,3 +45,8 @@ frontend/build/
 # OS
 .DS_Store
 Thumbs.db
+
+# LoRA training artifacts
+datasets/**/*.txt
+datasets/**/.aitk_size.json
+config/

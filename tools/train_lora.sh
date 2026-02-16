@@ -43,8 +43,18 @@ detect_vram() {
         local vram_mb
         vram_mb=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -1)
         if [ -n "$vram_mb" ]; then
-            VRAM=$((vram_mb / 1024))
-            echo "Detected GPU VRAM: ${VRAM}GB"
+            local detected=$((vram_mb / 1024))
+            # Round to nearest valid option: 8, 12, 16, 24
+            if [ "$detected" -le 10 ]; then
+                VRAM=8
+            elif [ "$detected" -le 14 ]; then
+                VRAM=12
+            elif [ "$detected" -le 20 ]; then
+                VRAM=16
+            else
+                VRAM=24
+            fi
+            echo "Detected GPU VRAM: ${detected}GB → using ${VRAM}GB profile"
         fi
     fi
 }
