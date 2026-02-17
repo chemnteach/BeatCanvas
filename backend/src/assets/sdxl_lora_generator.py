@@ -64,11 +64,15 @@ class SDXLLoRAGenerator:
     Loads and caches SDXL pipeline + LoRAs for efficient batch generation.
     """
 
+    # Project root = 4 levels up from this file (backend/src/assets/sdxl_lora_generator.py)
+    _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+    _LORA_BASE = _PROJECT_ROOT / "output" / "loras"
+
     def __init__(
         self,
         model_id: str = "stabilityai/stable-diffusion-xl-base-1.0",
         device: str = "cuda",
-        lora_registry_path: str = "backend/config/loras.yaml"
+        lora_registry_path: str = None
     ):
         if not DIFFUSERS_AVAILABLE:
             raise ImportError(
@@ -80,10 +84,12 @@ class SDXLLoRAGenerator:
         self.device = device if torch.cuda.is_available() else "cpu"
         self.pipeline = None
         self.loaded_loras = {}  # Cache loaded LoRAs
-        self.output_dir = Path("data/generated_images")
+        self.output_dir = self._PROJECT_ROOT / "backend" / "data" / "generated_images"
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         # Load LoRA registry
+        if lora_registry_path is None:
+            lora_registry_path = self._PROJECT_ROOT / "backend" / "config" / "loras.yaml"
         self.lora_registry_path = Path(lora_registry_path)
         self.lora_registry = self._load_lora_registry()
 
@@ -144,7 +150,7 @@ class SDXLLoRAGenerator:
 
         # Support relative paths from output/loras/
         if not lora_file.is_absolute():
-            lora_file = Path("output/loras") / lora_path
+            lora_file = self._LORA_BASE / lora_path
 
         if not lora_file.exists():
             raise FileNotFoundError(f"LoRA not found: {lora_file}")

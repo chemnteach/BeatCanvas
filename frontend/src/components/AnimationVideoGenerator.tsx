@@ -53,10 +53,11 @@ const AnimationVideoGenerator: React.FC = () => {
     };
   }, [websocket]);
 
-  const handleAudioUpload = async (file: File) => {
+  const handleAudioUpload = async (file: File | null) => {
+    if (!file) return;
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('audio', file);
 
       const response = await fetch(`${apiUrl}/api/upload-audio`, {
         method: 'POST',
@@ -255,8 +256,8 @@ const AnimationVideoGenerator: React.FC = () => {
           <div className="space-y-4">
             <h2 className="text-2xl font-semibold text-gray-800 mb-4">Upload Your Music</h2>
             <AudioUpload
-              onAudioSelect={handleAudioUpload}
-              disabled={isGenerating}
+              onFileSelect={handleAudioUpload}
+              selectedFile={audioFile}
             />
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
               <strong>Tip:</strong> Upload any music file (MP3, WAV, etc.). The animation will be perfectly synced to your audio!
@@ -303,9 +304,9 @@ const AnimationVideoGenerator: React.FC = () => {
                 onChange={(e) => setQualityTier(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               >
-                <option value="basic">Basic (12 scenes, ~$2-4)</option>
-                <option value="professional">Professional (24 scenes, ~$4-9) - Recommended</option>
-                <option value="cinematic">Cinematic (48 scenes, ~$8-18)</option>
+                <option value="basic">Basic (12 scenes, ~15 min)</option>
+                <option value="professional">Professional (24 scenes, ~30 min) - Recommended</option>
+                <option value="cinematic">Cinematic (48 scenes, ~60 min)</option>
               </select>
             </div>
 

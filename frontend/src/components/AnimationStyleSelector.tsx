@@ -50,7 +50,7 @@ const AnimationStyleSelector: React.FC<AnimationStyleSelectorProps> = ({
 
       const data: AnimationStylesResponse = await response.json();
       setStyles(data.styles);
-      setCategories(data.categories);
+      setCategories(data.categories || {});
       setError(null);
     } catch (err) {
       console.error('Error fetching animation styles:', err);

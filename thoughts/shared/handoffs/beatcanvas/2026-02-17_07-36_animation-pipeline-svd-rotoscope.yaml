@@ -1,0 +1,115 @@
+---
+session: beatcanvas
+date: 2026-02-17
+status: partial
+outcome: PARTIAL_PLUS
+---
+
+goal: Fix animation workflow and get Island Girl video working with real motion + rotoscope style
+now: Implement full SDXL → SVD → ControlNet rotoscope pipeline (remove Ken Burns entirely)
+test: cd backend && uvicorn main:app --reload; generate video via UI at localhost:3000
+
+done_this_session:
+  - task: Fixed backend startup settings.local.json malformed permissions
+    files: [.claude/settings.local.json]
+  - task: Enabled animation UI by overwriting App.tsx with App.animation.tsx content
+    files: [frontend/src/App.tsx]
+  - task: Fixed multiple frontend component bugs (AudioUpload props, Landscape icon, cost labels, categories crash)
+    files: [frontend/src/components/AnimationVideoGenerator.tsx, frontend/src/components/AnimationStyleSelector.tsx, frontend/src/components/ReferenceImageUpload.tsx]
+  - task: Created missing tsconfig.json for frontend
+    files: [frontend/tsconfig.json]
+  - task: Fixed backend animation endpoints (loras path, display_name fields, categories, audio upload path)
+    files: [backend/main.py]
+  - task: Fixed SDXLLoRAGenerator paths using PROJECT_ROOT constants (LoRAs at project root output/loras/)
+    files: [backend/src/assets/sdxl_lora_generator.py]
+  - task: Fixed MusicAnalyzer method name (analyze_song not analyze_audio)
+    files: [backend/src/animation/animation_workflow.py]
+  - task: Fixed numpy JSON serialization error with custom NumpyEncoder
+    files: [backend/src/animation/animation_workflow.py]
+  - task: Fixed download endpoint to use task output_path as fallback
+    files: [backend/main.py]
+  - task: Added tropical Island Girl scene descriptions with Rob/Michele narrative arc
+    files: [backend/src/animation/animation_workflow.py]
+  - task: Fixed LoRA trigger word from "ohwx" to "ohwx man" / "ohwx woman"
+    files: [backend/src/animation/animation_workflow.py]
+  - task: Added SDXL pipeline unload before rotoscope step to free VRAM
+    files: [backend/src/animation/animation_workflow.py]
+  - task: Started ControlNet model download in background (diffusion-edge/controlnet-canny-sdxl-1.0, ~2.5GB)
+    files: []
+
+blockers:
+  - ControlNet model still downloading (started at 07:36, may not be complete)
+  - Ken Burns code still in animation_workflow.py - needs to be removed entirely
+  - Full SDXL → SVD → ControlNet rotoscope pipeline not yet implemented
+
+questions:
+  - Is the ControlNet download complete?
+  - Does Rob's face actually appear in generated images with "ohwx man" trigger?
+  - How long is the Island Girl .wav file? (determines scene count needed for no-loop coverage)
+  - Does user want Professional (24 scenes) or Cinematic (48 scenes) for Island Girl?
+
+decisions:
+  - pipeline_architecture: "Full pipeline = SDXL+LoRAs → SVD img2vid → ControlNet rotoscope → assembly. All three steps needed."
+  - no_ken_burns: "User explicitly rejected Ken Burns zoom as a substitute for real motion. Remove entirely."
+  - svd_for_motion: "Stable Video Diffusion converts each SDXL image into ~4 second animated clip. Already downloaded on machine."
+  - rotoscope_purpose: "ControlNet rotoscope applied AFTER SVD motion. Converts animated frames to watercolor/cel-shaded style. Hides AI artifacts."
+  - island_girl_narrative: "Rob solo first third, Rob+Michele together last two-thirds, ending with them together on beach."
+
+findings:
+  - sdxl_images_generate_fine: "24 SDXL images generate successfully with Rob LoRA in ~10 minutes. Pipeline works up to that point."
+  - controlnet_not_cached: "diffusion-edge/controlnet-canny-sdxl-1.0 was not in HuggingFace cache. Download started this session."
+  - svd_already_cached: "stabilityai/stable-video-diffusion-img2vid-xt IS in cache. AnimateDiff-Lightning also cached. SVD ready to use."
+  - rotoscope_on_images_wrong: "Running rotoscope on static images just produces stylized images - still a slideshow. Rotoscope must run on video frames (after SVD)."
+  - download_endpoint_mismatch: "Download endpoint looks in OUTPUT_DIR/{task_id}.mp4 but animation saves to output/animation_projects/{name}/{name}_final.mp4. Fixed with fallback to task.output_path."
+  - trigger_word_critical: "ohwx alone insufficient - ohwx man is needed to activate character face from LoRA."
+
+worked:
+  - SDXL image generation with Rob LoRA and tropical scene prompts
+  - Frontend compilation after tsconfig.json created and component fixes applied
+  - Audio upload and backend processing (analyze_song works)
+  - Download endpoint fallback fix using task output_path
+  - Numpy JSON encoder for metadata serialization
+
+failed:
+  - Ken Burns effect (user rejected - one week of trying to get real animation)
+  - ControlNet rotoscope on static images (wrong order - should be on video frames)
+  - Rotoscope-only pipeline without SVD first (no motion)
+  - Initial prompt "scene {i+1}, cinematic composition" with just "ohwx" trigger (no characters, mountain landscape output)
+
+next:
+  - Check if ControlNet download completed (check ~/.cache/huggingface/hub/)
+  - Remove Ken Burns code from animation_workflow.py entirely
+  - Implement SVD step: _animate_scenes_with_svd() method using StableVideoDiffusionPipeline
+  - Restructure run_workflow: Step 2=SDXL images, Step 3=SVD animation, Step 4=ControlNet rotoscope, Step 5=assembly
+  - Implement _combine_video_clips() with cross-dissolve transitions (no hard cuts)
+  - Modify rotoscope step to accept video input (SVD clips) not image list
+  - Calculate scene count from audio duration to avoid looping (audio_duration / svd_clip_duration)
+  - Test full pipeline with Island Girl .wav
+
+files:
+  created:
+    - frontend/tsconfig.json
+    - thoughts/shared/handoffs/beatcanvas/2026-02-17_07-36_animation-pipeline-svd-rotoscope.yaml
+  modified:
+    - frontend/src/App.tsx (overwritten with animation UI)
+    - frontend/src/components/AnimationVideoGenerator.tsx (multiple fixes)
+    - frontend/src/components/AnimationStyleSelector.tsx (categories fallback)
+    - frontend/src/components/ReferenceImageUpload.tsx (Mountain icon fix)
+    - backend/main.py (loras endpoint, categories, audio path, download fallback)
+    - backend/src/assets/sdxl_lora_generator.py (PROJECT_ROOT constants, path fixes)
+    - backend/src/animation/animation_workflow.py (multiple fixes, scene prompts, trigger words, Ken Burns added and now to be removed)
+    - .claude/settings.local.json (malformed permissions fix)
+
+context:
+  island_girl_song: "Trop rock. Rob is primary character, Michele comes in and out, they end up together."
+  hardware: "RTX 5070 12GB VRAM, Intel Core Ultra 9 275HX, 16GB RAM, Ubuntu 24.04 WSL2"
+  lora_files:
+    rob: "output/loras/rob-character/rob-character.safetensors (82MB, trigger: ohwx man)"
+    michele: "output/loras/michele-character/michele-character.safetensors (82MB, trigger: ohwx woman)"
+  models_cached:
+    - stabilityai/stable-diffusion-xl-base-1.0
+    - stabilityai/stable-video-diffusion-img2vid-xt
+    - ByteDance/AnimateDiff-Lightning
+    - diffusion-edge/controlnet-canny-sdxl-1.0 (downloading now)
+  backend_start: "cd backend && conda run -n beatcanvas uvicorn main:app --host 0.0.0.0 --port 8000"
+  frontend_start: "cd frontend && npm start"

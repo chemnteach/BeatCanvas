@@ -919,7 +919,19 @@ async def download_video(video_id: str):
     """Download generated video"""
     video_path = OUTPUT_DIR / f"{video_id}.mp4"
 
+    # Check standard path first, then fall back to task's stored output_path
     if not video_path.exists():
+        # Strip _animation suffix to find the task ID
+        task_id = video_id.replace("_animation", "")
+        task = active_tasks.get(task_id) or active_tasks.get(video_id)
+        if task and task.get("output_path"):
+            output_path = Path(task["output_path"])
+            if output_path.exists():
+                return FileResponse(
+                    str(output_path),
+                    media_type="video/mp4",
+                    filename=f"beatcanvas_{video_id}.mp4"
+                )
         raise HTTPException(status_code=404, detail="Video not found")
 
     return FileResponse(video_path, media_type="video/mp4", filename=f"beatcanvas_{video_id}.mp4")
@@ -2101,6 +2113,7 @@ async def upload_audio(audio: UploadFile = File(...)):
 
         return {
             "audio_url": f"/audio/{audio_filename}",
+            "path": str(audio_path),
             "status": "success"
         }
 
@@ -2174,23 +2187,34 @@ class AnimationProjectRequest(BaseModel):
 async def list_animation_styles():
     """List all 16 animation styles"""
     from src.animation.rotoscope_generator import ANIMATION_STYLES
-    
+
+    STYLE_CATEGORIES = {
+        "tropical": ["watercolor", "impressionist", "synthwave", "ghibli", "paper_cutout", "oil_painting"],
+        "rock": ["comic_book", "graffiti", "cel_shaded", "pencil_sketch", "neon"],
+        "electronic": ["neon", "synthwave", "pixel_art", "pop_art"],
+        "jazz_classical": ["art_deco", "oil_painting", "impressionist", "ukiyo_e"],
+        "world_indie": ["ukiyo_e", "ghibli", "watercolor", "paper_cutout", "pencil_sketch"],
+        "pop": ["cartoon", "pop_art", "cel_shaded", "comic_book"],
+    }
+
     styles = []
     for name, config in ANIMATION_STYLES.items():
         styles.append({
             "name": name,
             "display_name": name.replace("_", " ").title(),
             "description": config["prompt_suffix"],
-            "best_for": config.get("best_for", "Various genres")
+            "best_for": config.get("best_for", "Various genres"),
+            "guidance_scale": config.get("guidance_scale", 7.5),
+            "conditioning_scale": config.get("controlnet_conditioning_scale", 0.75),
         })
-    
-    return {"styles": styles, "total": len(styles)}
+
+    return {"styles": styles, "total": len(styles), "categories": STYLE_CATEGORIES}
 
 @app.get("/api/animation/loras")
 async def list_character_loras():
     """List available character LoRAs"""
     import yaml
-    registry_path = Path("backend/config/loras.yaml")
+    registry_path = Path("config/loras.yaml")
     
     if not registry_path.exists():
         return {"character_loras": [], "scene_loras": [], "style_loras": []}
@@ -2206,10 +2230,15 @@ async def list_character_loras():
         if not config.get('enabled', False):
             continue
         
+        triggers = config.get("triggers", [])
         lora_info = {
             "name": name,
+            "display_name": name.replace("-", " ").replace("_", " ").title(),
             "type": config.get("type"),
-            "description": config.get("description", "")
+            "description": config.get("description", ""),
+            "file": config.get("file", ""),
+            "trigger": triggers[0] if triggers else None,
+            "default_weight": config.get("default_weight", 0.8),
         }
         
         if config.get("type") == "character":

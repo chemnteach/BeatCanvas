@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Upload, X, Image as ImageIcon, User, Landscape } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, User, Mountain } from 'lucide-react';
 
 interface ReferenceImageUploadProps {
   type: 'character' | 'background';
@@ -34,7 +34,7 @@ const ReferenceImageUpload: React.FC<ReferenceImageUploadProps> = ({
   };
 
   const getTypeIcon = () => {
-    return type === 'character' ? <User className="h-5 w-5" /> : <Landscape className="h-5 w-5" />;
+    return type === 'character' ? <User className="h-5 w-5" /> : <Mountain className="h-5 w-5" />;
   };
 
   const getTypeTitle = () => {

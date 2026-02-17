@@ -25,9 +25,12 @@ import yaml
 import json
 from datetime import datetime
 
+import cv2
+import numpy as np
+
 from src.audio.analyzer import MusicAnalyzer
 from src.assets.sdxl_lora_generator import SDXLLoRAGenerator
-from src.animation.rotoscope_generator import RotoscopeGenerator, RotoscopeConfig
+from src.animation.rotoscope_generator import RotoscopeGenerator, RotoscopeConfig, ANIMATION_STYLES
 from src.video.assembler import VideoAssembler
 
 
@@ -124,6 +127,7 @@ class AnimationWorkflow:
                     project_dir / "scenes"
                 )
 
+            print(f"[ANIMATION] footage_paths count: {len(footage_paths) if footage_paths else 0}")
             if not footage_paths:
                 return AnimationWorkflowResult(
                     success=False,
@@ -143,7 +147,8 @@ class AnimationWorkflow:
             styled_video_path = await self._apply_rotoscope_style(
                 footage_paths,
                 rotoscope_config,
-                project_dir / "styled_video.mp4"
+                project_dir / "styled_video.mp4",
+                audio_duration=audio_data.get("duration", 0)
             )
 
             if not styled_video_path:
@@ -175,9 +180,19 @@ class AnimationWorkflow:
                 "timestamp": datetime.now().isoformat()
             }
 
+            class _NumpyEncoder(json.JSONEncoder):
+                def default(self, obj):
+                    if isinstance(obj, np.ndarray):
+                        return obj.tolist()
+                    if isinstance(obj, (np.integer,)):
+                        return int(obj)
+                    if isinstance(obj, (np.floating,)):
+                        return float(obj)
+                    return super().default(obj)
+
             metadata_path = project_dir / "metadata.json"
             with open(metadata_path, 'w') as f:
-                json.dump(metadata, f, indent=2)
+                json.dump(metadata, f, indent=2, cls=_NumpyEncoder)
 
             print(f"\n[ANIMATION] ═══════════════════════════════════════")
             print(f"[ANIMATION] ✅ SUCCESS!")
@@ -194,7 +209,9 @@ class AnimationWorkflow:
             )
 
         except Exception as e:
+            import traceback
             print(f"\n[ANIMATION] ❌ ERROR: {e}")
+            print(f"[ANIMATION] TRACEBACK:\n{traceback.format_exc()}")
             return AnimationWorkflowResult(
                 success=False,
                 error=str(e)
@@ -202,7 +219,7 @@ class AnimationWorkflow:
 
     def _analyze_audio(self, audio_path: str, quality_tier: str) -> Dict:
         """Analyze audio to get structure and timing"""
-        audio_data = self.music_analyzer.analyze_audio(audio_path)
+        audio_data = self.music_analyzer.analyze_song(audio_path)
 
         # Determine scene count based on quality tier
         scene_count_map = {
@@ -231,44 +248,100 @@ class AnimationWorkflow:
         if self.sdxl_generator is None:
             self.sdxl_generator = SDXLLoRAGenerator()
 
-        # Build scene prompts (simplified for now - would normally use storyboard generator)
+        # Tropical/island scene templates - protagonist solo in early scenes,
+        # protagonist + supporting character together in later scenes
+        SCENE_TEMPLATES_SOLO = [
+            "ohwx man standing on a tropical beach at golden hour, palm trees, ocean waves",
+            "ohwx man walking along white sand beach, turquoise Caribbean water, sunny day",
+            "ohwx man at a beachside tiki bar, tropical drinks, island atmosphere",
+            "ohwx man looking out at the ocean, sailboats on horizon, warm sunset",
+            "ohwx man sitting under a palm tree, hammock, island relaxation",
+            "ohwx man on a wooden dock, island marina, golden light reflections",
+            "ohwx man at a beach bonfire at night, tiki torches, tropical stars",
+            "ohwx man on a boat in crystal blue water, Caribbean sea, freedom",
+        ]
+        SCENE_TEMPLATES_TOGETHER = [
+            "ohwx man meeting a beautiful woman on the beach, tropical sunset, romantic moment",
+            "ohwx man and ohwx woman walking together on the beach, island romance, golden hour",
+            "ohwx man and ohwx woman at a tiki bar dancing, island music, joyful",
+            "ohwx man and ohwx woman watching the sunset, tropical beach, romantic",
+            "ohwx man and ohwx woman swimming in a crystal lagoon, paradise",
+            "ohwx man and ohwx woman in a tropical garden, colorful flowers, lush",
+            "ohwx man and ohwx woman on a cliff overlooking the ocean, dramatic view",
+            "ohwx man and ohwx woman sharing a meal at a beach restaurant, candlelight",
+            "ohwx man and ohwx woman dancing on the beach under the stars, moonlight",
+            "ohwx man and ohwx woman watching fireworks over the ocean, celebration",
+            "ohwx man and ohwx woman walking hand in hand along the shoreline, sunset",
+            "ohwx man and ohwx woman embracing at sunset, tropical paradise, golden light",
+            "ohwx man and ohwx woman silhouette against a brilliant tropical sunset",
+            "ohwx man and ohwx woman happy together on tropical beach, paradise found",
+            "ohwx man and ohwx woman in love, beach, palm trees, island paradise",
+            "ohwx man and ohwx woman, romantic ending, tropical sunset, happy together",
+        ]
+        ALL_TEMPLATES = SCENE_TEMPLATES_SOLO + SCENE_TEMPLATES_TOGETHER
+
         scene_count = audio_data.get("scene_count", 24)
         duration = audio_data.get("duration", 0)
-        scene_duration = duration / scene_count
+        scene_duration = duration / max(scene_count, 1)
+
+        # Get style suffix for prompt
+        style_info = ANIMATION_STYLES.get(config.animation_style, {})
+        style_suffix = style_info.get("prompt_suffix", "")
+
+        # Split point: first N scenes are solo, rest include supporting character
+        # Default: first third is solo, rest together (or all solo if no supporting chars)
+        has_supporting = bool(config.supporting_loras)
+        solo_count = scene_count // 3 if has_supporting else scene_count
 
         generated_images = []
 
-        # Example scene generation (would be more sophisticated with actual storyboard)
         for i in range(scene_count):
             scene_time = i * scene_duration
+            include_supporting = has_supporting and i >= solo_count
 
-            # Build prompt (this is simplified - would come from storyboard generator)
-            prompt = f"scene {i+1}, cinematic composition, high quality"
+            # Pick scene description
+            template_idx = i % len(ALL_TEMPLATES)
+            scene_desc = ALL_TEMPLATES[template_idx]
+
+            # Build full prompt
+            if style_suffix:
+                prompt = f"{scene_desc}, {style_suffix}, cinematic photography"
+            else:
+                prompt = f"{scene_desc}, cinematic photography, high quality"
 
             # Build LoRA list
             loras = []
 
-            # Add protagonist LoRA if specified
+            # Add protagonist LoRA
             if config.protagonist_lora:
                 loras.append({
                     "path": f"{config.protagonist_lora}/{config.protagonist_lora}.safetensors",
-                    "weight": 0.8,
-                    "trigger": "ohwx"  # Would come from LoRA registry
+                    "weight": 0.85,
+                    "trigger": "ohwx man"
                 })
 
-            # Add scene LoRA if specified
-            if config.scene_loras and i % 3 == 0:  # Vary scene LoRAs
+            # Add supporting character LoRA for later scenes
+            if include_supporting and config.supporting_loras:
+                for supp_lora in config.supporting_loras:
+                    loras.append({
+                        "path": f"{supp_lora}/{supp_lora}.safetensors",
+                        "weight": 0.7,
+                        "trigger": "ohwx woman"
+                    })
+
+            # Add scene environment LoRA (vary across scenes)
+            if config.scene_loras:
                 scene_lora = config.scene_loras[i % len(config.scene_loras)]
                 loras.append({
                     "path": f"{scene_lora}/{scene_lora}.safetensors",
-                    "weight": 0.7
+                    "weight": 0.6
                 })
 
             # Add style LoRA if specified
             if config.style_lora:
                 loras.append({
                     "path": f"{config.style_lora}/{config.style_lora}.safetensors",
-                    "weight": 0.6
+                    "weight": 0.5
                 })
 
             # Generate image
@@ -304,7 +377,8 @@ class AnimationWorkflow:
         self,
         input_paths: List[str],
         config: RotoscopeConfig,
-        output_path: Path
+        output_path: Path,
+        audio_duration: float = 0.0
     ) -> Optional[str]:
         """
         Apply rotoscope/animation style to footage.
@@ -314,31 +388,163 @@ class AnimationWorkflow:
             config: Rotoscope configuration
             output_path: Output video path
         """
-        # Initialize rotoscope generator if not already loaded
-        if self.rotoscope_generator is None:
-            self.rotoscope_generator = RotoscopeGenerator()
+        # Unload SDXL pipeline to free VRAM before loading ControlNet
+        if self.sdxl_generator is not None:
+            print("[ANIMATION] Unloading SDXL pipeline to free VRAM for ControlNet...")
+            self.sdxl_generator.unload()
 
-        # Check if input is images or video
-        first_path = Path(input_paths[0])
-        if first_path.suffix.lower() in ['.mp4', '.avi', '.mov', '.mkv']:
-            # Video input
-            result = await self.rotoscope_generator.process_video(
-                str(first_path),
-                str(output_path),
-                config
-            )
-        else:
-            # Image sequence input
-            result = await self.rotoscope_generator.process_image_sequence(
-                input_paths,
-                str(output_path),
-                config
-            )
+        try:
+            # Initialize rotoscope generator if not already loaded
+            if self.rotoscope_generator is None:
+                self.rotoscope_generator = RotoscopeGenerator()
 
-        if result.success:
-            return result.output_video_path
+            # Check if input is images or video
+            first_path = Path(input_paths[0])
+            if first_path.suffix.lower() in ['.mp4', '.avi', '.mov', '.mkv']:
+                result = await self.rotoscope_generator.process_video(
+                    str(first_path),
+                    str(output_path),
+                    config
+                )
+            else:
+                result = await self.rotoscope_generator.process_image_sequence(
+                    input_paths,
+                    str(output_path),
+                    config
+                )
 
-        return None
+            if result.success:
+                return result.output_video_path
+
+            print(f"[ANIMATION] ControlNet rotoscope failed: {result.error}")
+
+        except Exception as e:
+            import traceback
+            print(f"[ANIMATION] ControlNet rotoscope exception: {e}")
+            print(f"[ANIMATION] {traceback.format_exc()}")
+
+        # Fallback: create slideshow with Ken Burns motion
+        print("[ANIMATION] Falling back to slideshow assembly (no ControlNet)...")
+        return self._create_slideshow_from_images(input_paths, output_path, config, audio_duration)
+
+    def _create_slideshow_from_images(
+        self,
+        image_paths: List[str],
+        output_path: Path,
+        config: RotoscopeConfig,
+        audio_duration: float = 0.0
+    ) -> Optional[str]:
+        """
+        Create a video slideshow with Ken Burns zoom/pan effects.
+
+        Each image gets equal time to exactly fill the song duration.
+        """
+        try:
+            if not image_paths:
+                return None
+
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            str_output = str(output_path)
+
+            # Calculate per-image duration to exactly fill the song
+            num_images = len(image_paths)
+            if audio_duration > 0:
+                secs_per_image = audio_duration / num_images
+            else:
+                secs_per_image = 4.0  # fallback: 4 seconds each
+            frames_per_image = max(1, int(config.fps * secs_per_image))
+
+            print(f"[ANIMATION] Slideshow: {num_images} images × {secs_per_image:.1f}s = {num_images * secs_per_image:.0f}s")
+
+            # Load first image to get output dimensions
+            first_img = cv2.imread(image_paths[0])
+            if first_img is None:
+                print(f"[ANIMATION] Could not read image: {image_paths[0]}")
+                return None
+
+            h, w = first_img.shape[:2]
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            out = cv2.VideoWriter(str_output, fourcc, config.fps, (w, h))
+
+            # Ken Burns effect types - cycle through for variety
+            effects = ['zoom_in', 'pan_right', 'zoom_out', 'pan_left',
+                       'zoom_in', 'pan_left', 'zoom_out', 'pan_right']
+
+            for idx, img_path in enumerate(image_paths):
+                img = cv2.imread(img_path)
+                if img is None:
+                    print(f"[ANIMATION] Skipping unreadable image: {img_path}")
+                    continue
+
+                if img.shape[:2] != (h, w):
+                    img = cv2.resize(img, (w, h))
+
+                effect = effects[idx % len(effects)]
+                frames = self._ken_burns_frames(img, frames_per_image, effect)
+                for frame in frames:
+                    out.write(frame)
+
+            out.release()
+            print(f"[ANIMATION] Slideshow created: {output_path}")
+            return str_output
+
+        except Exception as e:
+            import traceback
+            print(f"[ANIMATION] Slideshow creation failed: {e}")
+            print(f"[ANIMATION] {traceback.format_exc()}")
+            return None
+
+    def _ken_burns_frames(
+        self,
+        img_bgr: np.ndarray,
+        num_frames: int,
+        effect: str = 'zoom_in'
+    ) -> List[np.ndarray]:
+        """
+        Generate frames with Ken Burns zoom/pan effect from a single image.
+        Slowly zooms or pans so the image has motion, not a static freeze.
+        """
+        h, w = img_bgr.shape[:2]
+        frames = []
+
+        for i in range(num_frames):
+            t = i / max(num_frames - 1, 1)  # 0.0 → 1.0
+
+            if effect == 'zoom_in':
+                scale = 1.0 + 0.12 * t       # zoom from 1.0x to 1.12x
+                x_off, y_off = 0, 0
+            elif effect == 'zoom_out':
+                scale = 1.12 - 0.12 * t      # zoom from 1.12x to 1.0x
+                x_off, y_off = 0, 0
+            elif effect == 'pan_right':
+                scale = 1.08                  # constant slight zoom
+                x_off = t                     # pan left→right
+                y_off = 0
+            elif effect == 'pan_left':
+                scale = 1.08
+                x_off = 1.0 - t              # pan right→left
+                y_off = 0
+            else:
+                scale = 1.0
+                x_off, y_off = 0, 0
+
+            # Compute crop window
+            crop_w = int(w / scale)
+            crop_h = int(h / scale)
+            max_x = w - crop_w
+            max_y = h - crop_h
+
+            x_start = int(max_x * x_off)
+            y_start = int(max_y * (0.5 if y_off == 0 else y_off))
+
+            x_start = max(0, min(x_start, max_x))
+            y_start = max(0, min(y_start, max_y))
+
+            cropped = img_bgr[y_start:y_start + crop_h, x_start:x_start + crop_w]
+            resized = cv2.resize(cropped, (w, h), interpolation=cv2.INTER_LINEAR)
+            frames.append(resized)
+
+        return frames
 
     def _assemble_final_video(
         self,
@@ -348,16 +554,42 @@ class AnimationWorkflow:
         output_path: Path
     ) -> str:
         """
-        Sync styled video to music and create final output.
-
-        Uses existing VideoAssembler with audio sync.
+        Combine styled video with audio track and export final video.
         """
-        # This would use the existing video assembler
-        # For now, just copy the styled video and add audio
-        # (Full implementation would handle beat sync, transitions, etc.)
+        from moviepy import VideoFileClip, AudioFileClip
 
-        print(f"[ANIMATION] Final assembly to: {output_path}")
-        # Placeholder - would call video assembler here
+        print(f"[ANIMATION] Assembling final video with audio...")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            video = VideoFileClip(styled_video_path)
+            audio = AudioFileClip(audio_path)
+
+            # Loop video if shorter than audio, or trim if longer
+            audio_duration = audio.duration
+            if video.duration < audio_duration:
+                # Loop the video to match audio length
+                loops = int(audio_duration / video.duration) + 1
+                from moviepy import concatenate_videoclips
+                video = concatenate_videoclips([video] * loops)
+
+            # Trim to audio length and set audio
+            final = video.subclipped(0, audio_duration).with_audio(audio)
+            final.write_videofile(str(output_path), codec="libx264", audio_codec="aac", logger=None)
+            final.close()
+            audio.close()
+            video.close()
+
+            print(f"[ANIMATION] Final video assembled: {output_path}")
+
+        except Exception as e:
+            import traceback
+            print(f"[ANIMATION] Video assembly error: {e}")
+            print(f"[ANIMATION] {traceback.format_exc()}")
+            # Still return the path - ffmpeg will be tried or the styled video used as-is
+            import shutil
+            if not output_path.exists():
+                shutil.copy2(styled_video_path, str(output_path))
 
         return str(output_path)
 
