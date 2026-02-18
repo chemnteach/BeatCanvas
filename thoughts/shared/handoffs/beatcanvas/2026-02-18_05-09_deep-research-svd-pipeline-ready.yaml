@@ -1,0 +1,110 @@
+---
+session: beatcanvas
+date: 2026-02-18
+status: partial
+outcome: PARTIAL_PLUS
+---
+
+goal: Deep research of full codebase, identify all bugs, understand complete architecture before implementing SVD pipeline
+now: Implement SDXL → SVD → ControlNet rotoscope pipeline (remove Ken Burns, fix scene LoRA crashes first)
+test: cd backend && conda run -n beatcanvas uvicorn main:app --host 0.0.0.0 --port 8000; open localhost:3000
+
+done_this_session:
+  - task: Deep codebase research via scout agent - 945 lines written to research.md
+    files: [research.md]
+  - task: Identified critical bug - scene LoRA .safetensors files missing (only checkpoints exist)
+    files: [backend/config/loras.yaml, output/loras/]
+  - task: Confirmed SVD implementation already exists in local/video_generator.py
+    files: [backend/src/local/video_generator.py]
+  - task: Started ControlNet model download (diffusion-edge/controlnet-canny-sdxl-1.0)
+    files: []
+  - task: Committed and pushed all session 1 fixes to GitHub
+    files: []
+
+blockers:
+  - Scene LoRA .safetensors files missing - must fix before any scene LoRA can load
+  - ControlNet model download status unknown (started ~07:36 yesterday, may still be downloading)
+  - Ken Burns code still in animation_workflow.py
+
+questions:
+  - Is the ControlNet download complete? Check ~/.cache/huggingface/hub/ for diffusion-edge folder
+  - Do the scene LoRA checkpoint files need to be renamed/exported to final .safetensors?
+  - Should scene LoRAs be disabled in loras.yaml until their files are properly exported?
+  - How long is the Island Girl .wav? (determines how many SVD clips needed for no-loop coverage)
+
+decisions:
+  - architecture: "Full pipeline = SDXL+LoRAs → SVD img2vid → ControlNet rotoscope → cross-dissolve assembly"
+  - no_ken_burns: "Remove entirely. User explicitly rejected it after a week of trying."
+  - scene_loras_broken: "Disable scene LoRAs in loras.yaml OR rename checkpoint files until properly exported"
+  - svd_integration: "SVD code exists in local/video_generator.py - reuse/adapt rather than rewrite"
+
+findings:
+  - scene_loras_crash: "beach-sunset.safetensors, bonfire-beach.safetensors, tiki-bar-interior.safetensors DO NOT EXIST. Only checkpoint files (step_625, step_1250, step_1875). Every run using scene LoRAs silently fails or FileNotFoundErrors."
+  - svd_already_implemented: "StableVideoDiffusionPipeline in backend/src/local/video_generator.py. Uses img2vid-xt, 1024x576, 8fps default, dynamic decode_chunk_size by VRAM."
+  - animatediff_active: "AnimateDiff-Lightning IS in active storyboard pipeline (Workflow A). USE_ANIMATEDIFF=True in main.py."
+  - dead_code: "api_animation_endpoints.py router never mounted. Active animation endpoints are inline in main.py lines 2186-2314."
+  - temporal_consistency_fake: "rotoscope_generator.py has temporal_consistency param but previous_frame is silently ignored - not implemented."
+  - vram_manager: "Full VRAMManager with 'Kill and Revive' pattern exists. Must reach <1.5GB VRAM baseline between models."
+  - 5_checkpoint_models: "5 SDXL-class models on disk (Juggernaut-XL, RealVisXL, lustify, ponyDiffusion, sdxl-lightning-4step) at /synterra/models/ and backend/models/."
+  - lora_fuse_bug: "SDXL fuses each LoRA permanently via fuse_lora() - cannot stack cleanly. Should use load_lora_weights with adapter names instead for multi-LoRA."
+  - nvenc_disabled: "GPU video encoding hardcoded off in VideoAssembler (self.gpu_available = False)."
+  - in_memory_tasks: "active_tasks dict - all task state lost on backend restart. Explains why download worked but couldn't retrieve after restart."
+
+worked:
+  - SDXL image generation with Rob LoRA (24 images in ~10 min)
+  - Frontend end-to-end (upload → generate → download) after all UI fixes
+  - Audio analysis (analyze_song produces duration, tempo, beats, segments)
+  - Numpy JSON encoder fix for metadata serialization
+  - Download endpoint fallback to task output_path
+
+failed:
+  - Scene LoRAs (files missing - silently skipped or crash)
+  - ControlNet rotoscope (model not cached when first attempted)
+  - Ken Burns (user rejected - not real animation)
+  - Rotoscope on static images (wrong order - needs motion first)
+
+next:
+  - Fix scene LoRAs: either disable in loras.yaml OR rename checkpoint_1875 files to final .safetensors
+  - Check ControlNet download status
+  - Remove Ken Burns (_create_slideshow_from_images, _ken_burns_frames) from animation_workflow.py
+  - Wire SVD into animation pipeline: adapt local/video_generator.py SVD code
+  - New step in run_workflow: Step 3 = SVD animation (images → short video clips)
+  - New method _combine_video_clips() with cross-dissolve transitions (moviepy)
+  - Step 4 = ControlNet rotoscope on combined video (not static images)
+  - Calculate scene count from audio_duration so no looping needed
+  - Test full pipeline with Island Girl .wav (Professional tier = 24 scenes)
+  - Verify Rob's face appears in generated images (check a few of the 24 from last run)
+
+files:
+  created:
+    - research.md (945 lines, full codebase analysis)
+    - thoughts/shared/handoffs/beatcanvas/2026-02-18_05-09_deep-research-svd-pipeline-ready.yaml
+  modified: []
+
+context:
+  island_girl_song: "Trop rock. Rob primary, Michele comes in/out, ends together. .wav file uploaded."
+  hardware: "RTX 5070 12GB VRAM, Intel Core Ultra 9 275HX, 16GB RAM, Ubuntu 24.04 WSL2"
+  conda_env: "beatcanvas"
+  lora_files_working:
+    rob: "output/loras/rob-character/rob-character.safetensors (82MB, trigger: ohwx man)"
+    michele: "output/loras/michele-character/michele-character.safetensors (82MB, trigger: ohwx woman)"
+  lora_files_broken:
+    beach_sunset: "output/loras/beach-sunset/ - only checkpoints, no .safetensors"
+    bonfire_beach: "output/loras/bonfire-beach/ - only checkpoints, no .safetensors"
+    tiki_bar_interior: "output/loras/tiki-bar-interior/ - only checkpoints, no .safetensors"
+  models_cached:
+    - stabilityai/stable-diffusion-xl-base-1.0 (working)
+    - stabilityai/stable-video-diffusion-img2vid-xt (working, ready for SVD step)
+    - ByteDance/AnimateDiff-Lightning (working, used in Workflow A)
+    - diffusion-edge/controlnet-canny-sdxl-1.0 (downloading - check status)
+    - lllyasviel/Annotators (for LineartDetector)
+  backend_start: "cd backend && conda run -n beatcanvas uvicorn main:app --host 0.0.0.0 --port 8000"
+  frontend_start: "cd frontend && npm start"
+  key_files:
+    - backend/src/animation/animation_workflow.py (main pipeline, needs SVD + Ken Burns removal)
+    - backend/src/animation/rotoscope_generator.py (ControlNet style transfer)
+    - backend/src/local/video_generator.py (SVD implementation to reuse)
+    - backend/src/assets/sdxl_lora_generator.py (SDXL + LoRA generation)
+    - backend/config/loras.yaml (LoRA registry - scene LoRAs broken)
+    - backend/main.py (all active endpoints inline at lines 2186-2314)
+    - research.md (full architecture analysis)
