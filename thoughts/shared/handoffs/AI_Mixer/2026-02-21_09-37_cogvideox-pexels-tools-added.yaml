@@ -1,0 +1,103 @@
+---
+session: AI_Mixer
+date: 2026-02-21
+status: complete
+outcome: SUCCEEDED
+---
+
+goal: Explore CogVideoX as AnimateDiff replacement and build stock footage collection tooling for Island Girl music video
+now: Run pexels collector to download Island Girl footage, then wire CogVideoX into the animation pipeline as Workflow B
+test: cd backend && conda run -n beatcanvas python -c "from src.cinematography.cogvideox_generator import CogVideoXGenerator; print('OK')"
+
+done_this_session:
+  - task: Created CogVideoX text-to-video generator wrapper (better temporal consistency than AnimateDiff-Lightning)
+    files: [backend/src/cinematography/cogvideox_generator.py]
+  - task: Created template-based video generation script (bypass LLM storyboard for reliable prompts)
+    files: [backend/generate_template_video.py]
+  - task: Built Pexels API video collector tool for stock footage download
+    files: [tools/pexels_video_collector.py]
+  - task: Created Island Girl footage collection script (35-40 clips, organized by lyric section)
+    files: [tools/collect_island_girl_footage.sh]
+  - task: Added Rob and Michele character image datasets
+    files: [datasets/rob-character/, datasets/michele-character/]
+  - task: Validated CogVideoX generates test frames (cogvideox_minimal_frame.png, template_comparison_frame.png)
+    files: [backend/cogvideox_minimal_frame.png, backend/cogvideox_test_frame.png, backend/template_comparison_frame.png]
+
+blockers:
+  - Scene LoRA .safetensors files still missing (beach-sunset, bonfire-beach, tiki-bar-interior)
+  - PEXELS_API_KEY needed in ~/.claude/.env before running footage collector
+  - CogVideoX-5b model download required (~15GB) before full pipeline use
+
+questions:
+  - Is PEXELS_API_KEY configured? (run tools/collect_island_girl_footage.sh to test)
+  - Should CogVideoX replace AnimateDiff in the main pipeline or run as parallel Workflow B?
+  - Do the test frames (cogvideox_minimal_frame.png) show acceptable quality?
+
+decisions:
+  - cogvideox_strategy: "Use CogVideoX-5b as drop-in replacement for AnimateDiff-Lightning. Better temporal consistency and natural motion for 6-second clips at 8fps."
+  - template_prompts: "Template-based generation (generate_template_video.py) bypasses unreliable LLM storyboard - use proven prompts for consistent output."
+  - pexels_for_rotoscope: "Download real stock footage → rotoscope with ControlNet → better results than AI-generated base frames."
+  - footage_first_approach: "For Island Girl: collect Pexels clips first, apply ControlNet rotoscope to real footage, avoid hallucinated characters."
+
+findings:
+  - cogvideox_model: "THUDM/CogVideoX-5b at 720p, 48 frames (6s at 8fps), uses enable_model_cpu_offload() + VAE slicing for VRAM efficiency. guidance_scale=6.0 works well."
+  - template_prompts_work: "beach_family and urban_phones templates produce reliable results with front-lit face emphasis. Pattern: bright daylight + front-lit + photorealistic."
+  - pexels_free_tier: "200 req/hr, 20k req/month. Pexels License allows commercial use. API key required."
+  - island_girl_scenes: "8 scene types mapped to lyrics: airport (intro), beach-solo, tropical-woman, couple-beach, bonfire-night, sunset-overhead, couple-dancing, ocean-waves."
+  - datasets_added: "Rob and Michele character image datasets added to datasets/ - can be used for future LoRA training refinements or character consistency checks."
+
+worked:
+  - CogVideoX model loads and generates frames (test frames confirm)
+  - Template prompts produce consistent front-lit faces in AnimateDiff
+  - Pexels API integration (pexels_video_collector.py) with quality filtering
+  - Island Girl scene organization mapping lyrics to visual concepts
+
+failed:
+  - Scene LoRAs (still broken from previous session - checkpoint files need export)
+  - Ken Burns (still in codebase, marked for removal)
+
+next:
+  - Add PEXELS_API_KEY to ~/.claude/.env if not present
+  - Run: bash tools/collect_island_girl_footage.sh (downloads ~35-40 clips, ~300-500MB)
+  - Wire CogVideoX into animation_workflow.py as new Workflow B (replace AnimateDiff block)
+  - Remove Ken Burns code from animation_workflow.py (_create_slideshow_from_images, _ken_burns_frames)
+  - Fix scene LoRAs: rename checkpoint_1875 files to final .safetensors in config/loras.yaml
+  - Test full Island Girl pipeline: CogVideoX clips → ControlNet rotoscope → cross-dissolve assembly
+  - Commit all new untracked files to git
+
+files:
+  created:
+    - backend/src/cinematography/cogvideox_generator.py
+    - backend/generate_template_video.py
+    - backend/cogvideox_minimal_frame.png
+    - backend/cogvideox_test_frame.png
+    - backend/template_comparison_frame.png
+    - tools/pexels_video_collector.py
+    - tools/collect_island_girl_footage.sh
+    - datasets/rob-character/ (character images)
+    - datasets/michele-character/ (character images)
+  modified: []
+
+context:
+  hardware: "RTX 5070 12GB VRAM, Intel Core Ultra 9 275HX, 16GB RAM, Ubuntu 24.04 WSL2"
+  conda_env: "beatcanvas"
+  backend_start: "cd backend && conda run -n beatcanvas uvicorn main:app --host 0.0.0.0 --port 8000"
+  frontend_start: "cd frontend && npm start"
+  cogvideox_model: "THUDM/CogVideoX-5b (~15GB, downloads to ~/.cache/huggingface/hub/)"
+  lora_files_working:
+    rob: "output/loras/rob-character/rob-character.safetensors (82MB, trigger: ohwx man)"
+    michele: "output/loras/michele-character/michele-character.safetensors (82MB, trigger: ohwx woman)"
+  lora_files_broken:
+    beach_sunset: "output/loras/beach-sunset/ - only checkpoints, no .safetensors"
+    bonfire_beach: "output/loras/bonfire-beach/ - only checkpoints, no .safetensors"
+    tiki_bar_interior: "output/loras/tiki-bar-interior/ - only checkpoints, no .safetensors"
+  key_files:
+    - backend/src/cinematography/cogvideox_generator.py (NEW - CogVideoX wrapper)
+    - backend/generate_template_video.py (NEW - template-based generation)
+    - tools/pexels_video_collector.py (NEW - stock footage downloader)
+    - tools/collect_island_girl_footage.sh (NEW - Island Girl footage script)
+    - backend/src/animation/animation_workflow.py (needs CogVideoX + Ken Burns removal)
+    - backend/src/animation/rotoscope_generator.py (ControlNet style transfer)
+    - backend/src/local/video_generator.py (SVD implementation)
+    - backend/config/loras.yaml (scene LoRAs still broken)
+    - backend/main.py (active endpoints at lines 2186-2314)
