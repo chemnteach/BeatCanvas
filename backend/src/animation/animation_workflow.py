@@ -31,6 +31,7 @@ import numpy as np
 from src.audio.analyzer import MusicAnalyzer
 from src.assets.sdxl_lora_generator import SDXLLoRAGenerator
 from src.animation.rotoscope_generator import RotoscopeGenerator, RotoscopeConfig, ANIMATION_STYLES
+from src.cinematography.cogvideox_generator import CogVideoXGenerator
 from src.video.assembler import VideoAssembler
 
 
@@ -53,6 +54,7 @@ class AnimationProjectConfig:
     style_lora: Optional[str] = None  # e.g., "70s-film-retro"
 
     # Generation method
+    use_cogvideox: bool = False  # Workflow B: CogVideoX text-to-video (skips SDXL + rotoscope)
     use_stock_footage: bool = False  # If True, use stock footage instead of AI generation
     stock_footage_queries: Optional[List[str]] = None  # Pexels search queries
 
@@ -86,8 +88,9 @@ class AnimationWorkflow:
 
     def __init__(self):
         self.music_analyzer = MusicAnalyzer()
-        self.sdxl_generator = None  # Lazy load
-        self.rotoscope_generator = None  # Lazy load
+        self.sdxl_generator = None       # Lazy load — Workflow A
+        self.cogvideox_generator = None  # Lazy load — Workflow B
+        self.rotoscope_generator = None  # Lazy load — Workflow A
         self.video_assembler = VideoAssembler()
 
     async def run_workflow(
@@ -113,49 +116,66 @@ class AnimationWorkflow:
             print("[ANIMATION] Step 1: Analyzing audio...")
             audio_data = self._analyze_audio(config.audio_path, config.quality_tier)
 
-            # Step 2: Generate or collect footage
-            print(f"\n[ANIMATION] Step 2: Generating content...")
-            if config.use_stock_footage:
-                footage_paths = await self._collect_stock_footage(
-                    config.stock_footage_queries,
-                    project_dir / "footage"
+            # Step 2 + 3: Generate footage and (optionally) apply style
+            if config.use_cogvideox:
+                # ── Workflow B: CogVideoX text-to-video ──────────────────────
+                print(f"\n[ANIMATION] Step 2 (Workflow B): Generating video clips with CogVideoX...")
+                clip_paths = await self._generate_cogvideox_clips(
+                    audio_data, config, project_dir / "clips"
                 )
+                if not clip_paths:
+                    return AnimationWorkflowResult(
+                        success=False,
+                        error="CogVideoX generated no clips"
+                    )
+                print(f"\n[ANIMATION] Step 3 (Workflow B): Concatenating {len(clip_paths)} clips...")
+                styled_video_path = await self._concatenate_clips(
+                    clip_paths, project_dir / "styled_video.mp4"
+                )
+                if not styled_video_path:
+                    return AnimationWorkflowResult(
+                        success=False,
+                        error="Clip concatenation failed"
+                    )
             else:
-                footage_paths = await self._generate_character_scenes(
-                    audio_data,
-                    config,
-                    project_dir / "scenes"
+                # ── Workflow A: SDXL LoRA images → rotoscope ─────────────────
+                print(f"\n[ANIMATION] Step 2 (Workflow A): Generating content...")
+                if config.use_stock_footage:
+                    footage_paths = await self._collect_stock_footage(
+                        config.stock_footage_queries,
+                        project_dir / "footage"
+                    )
+                else:
+                    footage_paths = await self._generate_character_scenes(
+                        audio_data, config, project_dir / "scenes"
+                    )
+
+                print(f"[ANIMATION] footage_paths count: {len(footage_paths) if footage_paths else 0}")
+                if not footage_paths:
+                    return AnimationWorkflowResult(
+                        success=False,
+                        error="No footage generated or collected"
+                    )
+
+                print(f"\n[ANIMATION] Step 3 (Workflow A): Applying {config.animation_style} animation style...")
+                rotoscope_config = RotoscopeConfig(
+                    style=config.animation_style,
+                    fps=config.fps,
+                    width=config.width,
+                    height=config.height,
+                    strength=config.rotoscope_strength
                 )
-
-            print(f"[ANIMATION] footage_paths count: {len(footage_paths) if footage_paths else 0}")
-            if not footage_paths:
-                return AnimationWorkflowResult(
-                    success=False,
-                    error="No footage generated or collected"
+                styled_video_path = await self._apply_rotoscope_style(
+                    footage_paths,
+                    rotoscope_config,
+                    project_dir / "styled_video.mp4",
+                    audio_duration=audio_data.get("duration", 0)
                 )
-
-            # Step 3: Apply rotoscope/animation style
-            print(f"\n[ANIMATION] Step 3: Applying {config.animation_style} animation style...")
-            rotoscope_config = RotoscopeConfig(
-                style=config.animation_style,
-                fps=config.fps,
-                width=config.width,
-                height=config.height,
-                strength=config.rotoscope_strength
-            )
-
-            styled_video_path = await self._apply_rotoscope_style(
-                footage_paths,
-                rotoscope_config,
-                project_dir / "styled_video.mp4",
-                audio_duration=audio_data.get("duration", 0)
-            )
-
-            if not styled_video_path:
-                return AnimationWorkflowResult(
-                    success=False,
-                    error="Rotoscope processing failed"
-                )
+                if not styled_video_path:
+                    return AnimationWorkflowResult(
+                        success=False,
+                        error="Rotoscope processing failed"
+                    )
 
             # Step 4: Sync to music and assemble final video
             print(f"\n[ANIMATION] Step 4: Syncing to music and assembling final video...")
@@ -423,128 +443,128 @@ class AnimationWorkflow:
             print(f"[ANIMATION] ControlNet rotoscope exception: {e}")
             print(f"[ANIMATION] {traceback.format_exc()}")
 
-        # Fallback: create slideshow with Ken Burns motion
-        print("[ANIMATION] Falling back to slideshow assembly (no ControlNet)...")
-        return self._create_slideshow_from_images(input_paths, output_path, config, audio_duration)
+        print("[ANIMATION] Rotoscope failed — returning None. Use use_cogvideox=True for a reliable fallback.")
+        return None
 
-    def _create_slideshow_from_images(
+    # ── Workflow B: CogVideoX ──────────────────────────────────────────────────
+
+    async def _generate_cogvideox_clips(
         self,
-        image_paths: List[str],
-        output_path: Path,
-        config: RotoscopeConfig,
-        audio_duration: float = 0.0
-    ) -> Optional[str]:
+        audio_data: Dict,
+        config: AnimationProjectConfig,
+        output_dir: Path,
+    ) -> List[str]:
+        """Generate per-scene video clips via CogVideoX (Workflow B).
+
+        Produces one 6-second clip (48 frames @ 8 FPS) per scene.
+        Returns list of .mp4 paths.
         """
-        Create a video slideshow with Ken Burns zoom/pan effects.
+        output_dir.mkdir(parents=True, exist_ok=True)
 
-        Each image gets equal time to exactly fill the song duration.
-        """
-        try:
-            if not image_paths:
-                return None
+        if self.cogvideox_generator is None:
+            self.cogvideox_generator = CogVideoXGenerator()
+            self.cogvideox_generator.load()
 
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            str_output = str(output_path)
+        scene_count = audio_data.get("scene_count", 24)
+        style_info = ANIMATION_STYLES.get(config.animation_style, {})
+        style_suffix = style_info.get("prompt_suffix", "cinematic, high quality")
 
-            # Calculate per-image duration to exactly fill the song
-            num_images = len(image_paths)
-            if audio_duration > 0:
-                secs_per_image = audio_duration / num_images
-            else:
-                secs_per_image = 4.0  # fallback: 4 seconds each
-            frames_per_image = max(1, int(config.fps * secs_per_image))
+        # Reuse the same scene templates as Workflow A
+        SCENE_TEMPLATES_SOLO = [
+            "ohwx man standing on a tropical beach at golden hour, palm trees, ocean waves",
+            "ohwx man walking along white sand beach, turquoise Caribbean water, sunny day",
+            "ohwx man at a beachside tiki bar, tropical drinks, island atmosphere",
+            "ohwx man looking out at the ocean, sailboats on horizon, warm sunset",
+            "ohwx man sitting under a palm tree, hammock, island relaxation",
+            "ohwx man on a wooden dock, island marina, golden light reflections",
+            "ohwx man at a beach bonfire at night, tiki torches, tropical stars",
+            "ohwx man on a boat in crystal blue water, Caribbean sea, freedom",
+        ]
+        SCENE_TEMPLATES_TOGETHER = [
+            "ohwx man meeting a beautiful woman on the beach, tropical sunset, romantic moment",
+            "ohwx man and ohwx woman walking together on the beach, island romance, golden hour",
+            "ohwx man and ohwx woman at a tiki bar dancing, island music, joyful",
+            "ohwx man and ohwx woman watching the sunset, tropical beach, romantic",
+            "ohwx man and ohwx woman swimming in a crystal lagoon, paradise",
+            "ohwx man and ohwx woman in a tropical garden, colorful flowers, lush",
+            "ohwx man and ohwx woman on a cliff overlooking the ocean, dramatic view",
+            "ohwx man and ohwx woman sharing a meal at a beach restaurant, candlelight",
+            "ohwx man and ohwx woman dancing on the beach under the stars, moonlight",
+            "ohwx man and ohwx woman watching fireworks over the ocean, celebration",
+            "ohwx man and ohwx woman walking hand in hand along the shoreline, sunset",
+            "ohwx man and ohwx woman embracing at sunset, tropical paradise, golden light",
+            "ohwx man and ohwx woman silhouette against a brilliant tropical sunset",
+            "ohwx man and ohwx woman happy together on tropical beach, paradise found",
+            "ohwx man and ohwx woman in love, beach, palm trees, island paradise",
+            "ohwx man and ohwx woman, romantic ending, tropical sunset, happy together",
+        ]
+        ALL_TEMPLATES = SCENE_TEMPLATES_SOLO + SCENE_TEMPLATES_TOGETHER
 
-            print(f"[ANIMATION] Slideshow: {num_images} images × {secs_per_image:.1f}s = {num_images * secs_per_image:.0f}s")
+        has_supporting = bool(config.supporting_loras)
+        solo_count = scene_count // 3 if has_supporting else scene_count
 
-            # Load first image to get output dimensions
-            first_img = cv2.imread(image_paths[0])
-            if first_img is None:
-                print(f"[ANIMATION] Could not read image: {image_paths[0]}")
-                return None
+        clip_paths = []
+        for i in range(scene_count):
+            include_supporting = has_supporting and i >= solo_count
+            templates = (SCENE_TEMPLATES_TOGETHER if include_supporting else SCENE_TEMPLATES_SOLO)
+            scene_desc = templates[i % len(templates)]
+            prompt = f"{scene_desc}, {style_suffix}"
 
-            h, w = first_img.shape[:2]
+            print(f"[ANIMATION] CogVideoX clip {i + 1}/{scene_count}: {scene_desc[:60]}...")
+            frames = self.cogvideox_generator.generate(
+                prompt=prompt,
+                num_frames=48,       # 6s @ 8fps — CogVideoX native
+                guidance_scale=6.0,
+                num_inference_steps=50,
+                seed=i * 137,        # deterministic spread
+                width=720,
+                height=480,
+            )
+
+            if not frames:
+                print(f"[ANIMATION] CogVideoX clip {i + 1} returned no frames — skipping")
+                continue
+
+            clip_path = output_dir / f"clip_{i:03d}.mp4"
+            h, w = frames[0].shape[:2]
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            out = cv2.VideoWriter(str_output, fourcc, config.fps, (w, h))
+            writer = cv2.VideoWriter(str(clip_path), fourcc, 8, (w, h))  # 8fps = CogVideoX native
+            for frame in frames:
+                writer.write(frame)
+            writer.release()
+            clip_paths.append(str(clip_path))
+            print(f"[ANIMATION] Saved clip {i + 1}: {clip_path}")
 
-            # Ken Burns effect types - cycle through for variety
-            effects = ['zoom_in', 'pan_right', 'zoom_out', 'pan_left',
-                       'zoom_in', 'pan_left', 'zoom_out', 'pan_right']
+        # Free VRAM after all clips are generated
+        if self.cogvideox_generator is not None:
+            self.cogvideox_generator.kill()
+            self.cogvideox_generator = None
 
-            for idx, img_path in enumerate(image_paths):
-                img = cv2.imread(img_path)
-                if img is None:
-                    print(f"[ANIMATION] Skipping unreadable image: {img_path}")
-                    continue
+        print(f"[ANIMATION] CogVideoX: generated {len(clip_paths)}/{scene_count} clips")
+        return clip_paths
 
-                if img.shape[:2] != (h, w):
-                    img = cv2.resize(img, (w, h))
-
-                effect = effects[idx % len(effects)]
-                frames = self._ken_burns_frames(img, frames_per_image, effect)
-                for frame in frames:
-                    out.write(frame)
-
-            out.release()
-            print(f"[ANIMATION] Slideshow created: {output_path}")
-            return str_output
-
+    async def _concatenate_clips(
+        self,
+        clip_paths: List[str],
+        output_path: Path,
+    ) -> Optional[str]:
+        """Concatenate video clips into a single video file."""
+        try:
+            from moviepy import VideoFileClip, concatenate_videoclips
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            clips = [VideoFileClip(p) for p in clip_paths]
+            final = concatenate_videoclips(clips)
+            final.write_videofile(str(output_path), codec="libx264", logger=None)
+            for c in clips:
+                c.close()
+            final.close()
+            print(f"[ANIMATION] Concatenated {len(clip_paths)} clips → {output_path}")
+            return str(output_path)
         except Exception as e:
             import traceback
-            print(f"[ANIMATION] Slideshow creation failed: {e}")
+            print(f"[ANIMATION] Clip concatenation failed: {e}")
             print(f"[ANIMATION] {traceback.format_exc()}")
             return None
-
-    def _ken_burns_frames(
-        self,
-        img_bgr: np.ndarray,
-        num_frames: int,
-        effect: str = 'zoom_in'
-    ) -> List[np.ndarray]:
-        """
-        Generate frames with Ken Burns zoom/pan effect from a single image.
-        Slowly zooms or pans so the image has motion, not a static freeze.
-        """
-        h, w = img_bgr.shape[:2]
-        frames = []
-
-        for i in range(num_frames):
-            t = i / max(num_frames - 1, 1)  # 0.0 → 1.0
-
-            if effect == 'zoom_in':
-                scale = 1.0 + 0.12 * t       # zoom from 1.0x to 1.12x
-                x_off, y_off = 0, 0
-            elif effect == 'zoom_out':
-                scale = 1.12 - 0.12 * t      # zoom from 1.12x to 1.0x
-                x_off, y_off = 0, 0
-            elif effect == 'pan_right':
-                scale = 1.08                  # constant slight zoom
-                x_off = t                     # pan left→right
-                y_off = 0
-            elif effect == 'pan_left':
-                scale = 1.08
-                x_off = 1.0 - t              # pan right→left
-                y_off = 0
-            else:
-                scale = 1.0
-                x_off, y_off = 0, 0
-
-            # Compute crop window
-            crop_w = int(w / scale)
-            crop_h = int(h / scale)
-            max_x = w - crop_w
-            max_y = h - crop_h
-
-            x_start = int(max_x * x_off)
-            y_start = int(max_y * (0.5 if y_off == 0 else y_off))
-
-            x_start = max(0, min(x_start, max_x))
-            y_start = max(0, min(y_start, max_y))
-
-            cropped = img_bgr[y_start:y_start + crop_h, x_start:x_start + crop_w]
-            resized = cv2.resize(cropped, (w, h), interpolation=cv2.INTER_LINEAR)
-            frames.append(resized)
-
-        return frames
 
     def _assemble_final_video(
         self,
