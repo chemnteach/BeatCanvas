@@ -1,0 +1,70 @@
+---
+session: AI_Mixer
+date: 2026-02-26
+status: complete
+outcome: SUCCEEDED
+---
+
+goal: Fix single-LoRA set_adapters bug + frontend tests + prompt override + spinner + regen diagnostics
+now: Wire CivitAI search to /api/lora/recommend + /api/lora/download (tech debt from previous session)
+test: cd /home/craig/AI_Workspace/synterra/Beat_Studio && python -m pytest backend/tests/unit/test_storyboard_state.py backend/tests/unit/test_storyboard_service.py backend/tests/unit/test_storyboard_router.py backend/tests/unit/test_task_manager.py -q
+
+done_this_session:
+  - task: "Fix single-LoRA set_adapters bug — changed `if len(adapter_names) > 1:` to `if adapter_names:` so registry weight is applied even for a single LoRA"
+    files: [backend/services/storyboard/service.py]
+  - task: "Update 2 service tests that encoded old broken behaviour — renamed test_set_adapters_not_called_for_single_lora → test_set_adapters_called_for_single_lora, updated assertions from assert_not_called() to assert_called_once_with(['lora_a'], adapter_weights=[0.75])"
+    files: [backend/tests/unit/test_storyboard_service.py]
+  - task: "Fix TaskManager grace period — recover_stuck_tasks() now has 60-second grace window so fast server reloads don't kill just-created tasks; test uses recovery_grace_seconds=0"
+    files: [backend/services/shared/task_manager.py, backend/tests/unit/test_task_manager.py]
+  - task: "Add prompt override textarea to StoryboardPreview — promptEdits state, textarea UI with red border when edited, reset button, wired to regenerateScene"
+    files: [frontend/src/components/StoryboardPreview.tsx]
+  - task: "Add spinning animation to all ⟳ indicators — @keyframes spin + .spin class in CSS, applied to overlay, regen button, and thumbnail"
+    files: [frontend/src/index.css, frontend/src/components/StoryboardPreview.tsx]
+  - task: "Fix all 11 StoryboardPreview frontend tests — root cause was vi.useFakeTimers() freezing RTL waitFor retries; replaced waitFor with act() + flush pattern; fixed mock ordering (lora/list consumed first)"
+    files: [frontend/src/components/StoryboardPreview.test.tsx]
+
+blockers: []
+
+questions:
+  - "Rob character LoRA doesn't visually show Rob prominently — is the LoRA effective? Watercolor style abstracts fine details where identity LoRAs show most"
+  - "5 scene LoRAs (beach-bar, beach-sunset, boat-deck, bonfire-beach, tiki-bar) compete with Rob LoRA — consider per-scene LoRA selection"
+
+decisions:
+  - single_lora_always_calls_set_adapters: "set_adapters must be called for ANY number of LoRAs ≥1 to apply registry weights; old `len > 1` guard was wrong"
+  - grace_period_60s: "TaskManager recovers stuck tasks only older than 60 seconds to protect fast reload cycle"
+  - prompt_override_null_vs_empty: "Sending positive_prompt=null tells backend to reuse stored prompt; empty string trimmed to null in frontend"
+
+findings:
+  - regen_confirmed_working: "v2.png written to disk at 19:56 with lora_weights={'rob-character': 0.9}; generation IS happening"
+  - rob_lora_trigger: "Rob's trigger token is rob_char (not rob_character); type=character; weight=0.8 in registry"
+  - six_loras_competing: "All 6 LoRAs applied to every scene regardless of relevance — beach/boat/bonfire LoRAs fighting Rob for every scene"
+  - character_lora_limitation: "Character LoRA affects appearance (face/hair/features) NOT compositional presence; won't force Rob to be focal subject"
+  - waitfor_frozen_by_fake_timers: "vi.useFakeTimers() freezes waitFor's internal setTimeout retries; must use act() + await Promise.resolve() flush pattern instead"
+  - double_style_prefix: "VideoStudio sends positive_prompt already containing style prefix; storyboard service prepends it again — style is doubled in SDXL prompt (benign but wasteful)"
+
+worked:
+  - "act() + flush = () => act(async () => { await Promise.resolve() }) replaces waitFor for fake timer tests"
+  - "Mock ordering: lora/list useEffect consumes FIRST mock GET, then task poll, then images — must match this order in tests"
+  - "recovery_grace_seconds=0 parameter in test bypasses grace window to verify crash recovery"
+  - "Checking output/storyboard/ on disk to confirm regeneration actually happened"
+
+failed:
+  - "waitFor with fake timers — always hangs; never use together"
+
+next:
+  - Wire CivitAI public API to POST /api/lora/recommend (no key required for search)
+  - Wire POST /api/lora/download to stream .safetensors from URL → output/loras/ → append loras.yaml
+  - Consider per-scene LoRA assignment — apply only relevant LoRAs per scene rather than all LoRAs to all scenes
+  - Fix double style prefix: VideoStudio should send raw scene description as positive_prompt, not style-prefixed prompt
+  - Test Rob appearance with cinematic/realistic style (watercolor abstracts identity LoRA details)
+
+files:
+  created: []
+  modified:
+    - backend/services/storyboard/service.py
+    - backend/services/shared/task_manager.py
+    - backend/tests/unit/test_storyboard_service.py
+    - backend/tests/unit/test_task_manager.py
+    - frontend/src/components/StoryboardPreview.tsx
+    - frontend/src/components/StoryboardPreview.test.tsx
+    - frontend/src/index.css
