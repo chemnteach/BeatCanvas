@@ -1,0 +1,68 @@
+---
+session: AI_Mixer
+date: 2026-02-28
+status: complete
+outcome: SUCCEEDED
+---
+
+goal: Fix single-LoRA set_adapters bug, spinner animation, energy normalization regression
+now: Wire CivitAI search to /api/lora/recommend + /api/lora/download (tech debt)
+test: cd /home/craig/AI_Workspace/synterra/Beat_Studio && python -m pytest backend/tests/unit/test_storyboard_service.py backend/tests/unit/test_audio_analyzer.py -q
+
+done_this_session:
+  - task: "Fix single-LoRA set_adapters bug — changed `if len(adapter_names) > 1:` to `if adapter_names:` so registry weight applied for single LoRA"
+    files: [backend/services/storyboard/service.py, backend/tests/unit/test_storyboard_service.py]
+  - task: "Fix TaskManager grace period — 60s window protects in-flight tasks on fast server reloads"
+    files: [backend/services/shared/task_manager.py, backend/tests/unit/test_task_manager.py]
+  - task: "Add prompt override textarea to StoryboardPreview — wired to regenerateScene"
+    files: [frontend/src/components/StoryboardPreview.tsx]
+  - task: "Add spinning animation to regen indicators — @keyframes spin + .spin class"
+    files: [frontend/src/index.css, frontend/src/components/StoryboardPreview.tsx]
+  - task: "Fix all 11 StoryboardPreview frontend tests — waitFor frozen by fake timers; replaced with act() + flush pattern"
+    files: [frontend/src/components/StoryboardPreview.test.tsx]
+  - task: "Fix energy level always showing 100% — security review introduced /0.1 divisor that saturated all modern mastered tracks; reverted to raw np.mean(rms)"
+    files: [backend/services/audio/analyzer.py]
+
+blockers: []
+
+questions:
+  - "Rob LoRA doesn't show Rob prominently at watercolor style — identity LoRAs work best with cinematic/realistic styles, not watercolor which abstracts fine details"
+  - "5 scene LoRAs + Rob LoRA all applied to every scene — per-scene LoRA assignment not yet implemented"
+  - "Double style prefix: VideoStudio sends style-prefixed positive_prompt; storyboard service adds prefix again (benign but wasteful)"
+
+decisions:
+  - single_lora_always_calls_set_adapters: "set_adapters must fire for ANY n≥1 LoRAs; old len>1 guard silently skipped weight for single LoRA"
+  - energy_raw_rms: "np.mean(rms) is already 0–1 for real audio; dividing by 0.1 was wrong — modern mastered music easily hits 0.1+ RMS"
+
+findings:
+  - regen_confirmed_working: "Checked output/storyboard/ on disk — v2.png written at 19:56 with lora_weights={'rob-character': 0.9}; generation IS happening"
+  - rob_trigger_token: "Rob's trigger is rob_char (not rob_character); type=character; weight=0.8 in loras.yaml"
+  - six_loras_competing: "All 6 LoRAs (rob + 5 scene LoRAs) applied to every scene regardless of relevance"
+  - energy_regression_source: "Security review commit 2f3482b changed float(np.mean(rms)) to min(np.mean(rms)/0.1, 1.0) — any track with mean RMS ≥ 0.1 shows 100%"
+  - waitfor_frozen_pattern: "vi.useFakeTimers() freezes waitFor's internal setTimeout retries; use act() + await Promise.resolve() instead"
+
+worked:
+  - "Checking output/storyboard/ on disk to diagnose whether regen actually ran"
+  - "git show <commit> -- file to find what a past commit changed"
+  - "act() + flush = () => act(async () => { await Promise.resolve() }) replaces waitFor with fake timers"
+
+failed: []
+
+next:
+  - Wire CivitAI public API to POST /api/lora/recommend (no key required for search)
+  - Wire POST /api/lora/download to stream .safetensors → output/loras/ → append loras.yaml
+  - Consider per-scene LoRA assignment — only apply relevant LoRAs per scene
+  - Fix double style prefix: send raw scene description as positive_prompt from VideoStudio
+  - Test Rob character with cinematic/realistic style (watercolor abstracts identity details)
+
+files:
+  created: []
+  modified:
+    - backend/services/storyboard/service.py
+    - backend/services/shared/task_manager.py
+    - backend/services/audio/analyzer.py
+    - backend/tests/unit/test_storyboard_service.py
+    - backend/tests/unit/test_task_manager.py
+    - frontend/src/components/StoryboardPreview.tsx
+    - frontend/src/components/StoryboardPreview.test.tsx
+    - frontend/src/index.css
