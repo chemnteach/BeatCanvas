@@ -1,0 +1,143 @@
+---
+session: AI_Mixer
+date: 2026-02-25
+status: complete
+outcome: SUCCEEDED
+---
+
+goal: Full layer review of Beat_Studio backend — Critical through P3 fixes applied
+now: Run pytest to verify no regressions, then wire CogVideoX into animation pipeline as Workflow B
+test: cd /home/craig/AI_Workspace/synterra/Beat_Studio && python -m pytest backend/tests/unit/ -q
+
+done_this_session:
+  - task: Improved Beat_Studio CLAUDE.md (added prompt/ domain, ruff commands, env priority chain)
+    files: [Beat_Studio/CLAUDE.md]
+  - task: Fixed layer* skills not showing (renamed 17 skill.md → SKILL.md)
+    files: [~/.claude/skills/layer*/SKILL.md]
+  - task: Ran layer1-planning — classified Beat_Studio as High criticality; recommended layer2a/2b/2c/2d in parallel
+    files: []
+  - task: Ran layer2a (quick review) + layer2b (correctness) + layer2c (security) + layer2d (data integrity) in parallel
+    files: []
+  - task: Ran layer5-fix-planning — organized findings into Critical/P1/P2/P3 batches with sequencing
+    files: []
+  - task: Fixed Critical - path traversal in 4 endpoints (UUID regex + resolve().is_relative_to())
+    files: [backend/routers/audio.py, backend/routers/video.py, backend/routers/mashup.py]
+  - task: Fixed Critical - TaskManager split-brain (all routers now use same absolute db path)
+    files: [backend/routers/video.py, backend/routers/nova_fade.py]
+  - task: Fixed Critical - VRAMManager not thread-safe (added threading.Lock + double-checked locking)
+    files: [backend/services/shared/vram_manager.py]
+  - task: Fixed Critical - energy_level normalization (raw RMS → min(rms/0.1, 1.0) on 0-10 scale)
+    files: [backend/services/audio/analyzer.py]
+  - task: Fixed Critical - ChromaDB cosine score formula ((2.0-dist)/2.0 not 1.0-dist)
+    files: [backend/services/mashup/memory.py]
+  - task: Fixed Critical - Config singleton race condition (double-checked locking)
+    files: [backend/services/shared/config.py]
+  - task: Fixed P1 - Whisper model cached on instance (was reloaded every transcribe call)
+    files: [backend/services/audio/analyzer.py]
+  - task: Fixed P2 - concat.txt concurrent overwrite (unique UUID filename + finally cleanup)
+    files: [backend/services/video/assembler.py]
+  - task: Fixed P2 - FFmpeg encoder silent failures (added CalledProcessError + stderr decode)
+    files: [backend/services/video/encoder.py]
+  - task: Fixed P2 - stem_config mutation + IndexError on empty (copy + fallback)
+    files: [backend/services/mashup/engineer.py]
+  - task: Fixed P2 - double [MOOD] tag in ChromaDB documents (removed duplicate append in analyst)
+    files: [backend/services/mashup/analyst.py]
+  - task: Fixed P2 - URL suffix detection (Path(urlparse(url).path).suffix not substring match)
+    files: [backend/services/lora/downloader.py]
+  - task: Fixed P2 - LoRA router stubs return 501 instead of fake 202/201/204
+    files: [backend/routers/lora.py]
+  - task: Fixed P2 - MP3 export contradictory params (removed -q:a 0 VBR flag)
+    files: [backend/services/audio/processing.py]
+  - task: Fixed P2 - getattr on typed Pydantic model replaced with direct attribute access
+    files: [backend/routers/video.py]
+  - task: Fixed P2 - _get_analyzer() singleton not thread-safe (added Lock + double-checked)
+    files: [backend/routers/audio.py]
+  - task: Fixed P3 - transition_engine getattr callable bug (TypeError at runtime)
+    files: [backend/services/video/transition_engine.py]
+  - task: Fixed P3 - beat_sync.py stale docstring caps (24/48 → 40/60)
+    files: [backend/services/video/beat_sync.py]
+  - task: Fixed P3 - encoder.py duplicate portrait preset (extracted _PORTRAIT_PRESET constant)
+    files: [backend/services/video/encoder.py]
+  - task: Fixed P3 - MemoryError shadows Python built-in (renamed to LibraryError)
+    files: [backend/services/mashup/memory.py]
+  - task: Fixed P3 - _RRF_K constant, weight sum validation, datetime.utcnow deprecation
+    files: [backend/services/mashup/memory.py, backend/services/mashup/analyst.py]
+  - task: Fixed P3 - logging deferred import, _BYTES_PER_GB constant, Dict[str,Any] types
+    files: [backend/services/shared/task_manager.py, backend/services/shared/vram_manager.py, backend/services/lora/registry.py]
+  - task: Fixed P3 - engineer.py constants (_SAMPLE_RATE, _STRETCH_MIN/MAX, _HARMONY_ATTENUATION)
+    files: [backend/services/mashup/engineer.py]
+  - task: Fixed P3 - HERO_ENERGY_PERCENTILE_PCT rename (75 not 0.75, no * 100 needed)
+    files: [backend/services/audio/analyzer.py]
+  - task: Fixed P3 - theme param shadow in _matching(), urlparse import to top-level
+    files: [backend/services/mashup/engineer.py, backend/services/lora/downloader.py]
+  - task: Fixed remaining stubs → 501 (drift-test, dj-video, scene/edit, models/install)
+    files: [backend/routers/nova_fade.py, backend/routers/video.py, backend/routers/system.py]
+  - task: Updated TaskManager crash recovery tests
+    files: [backend/tests/unit/test_task_manager.py]
+
+blockers:
+  - Scene LoRA .safetensors still missing (beach-sunset, bonfire-beach, tiki-bar-interior need checkpoint export)
+  - PEXELS_API_KEY needed in ~/.claude/.env before running footage collector
+  - CogVideoX-5b model download required (~15GB) before full pipeline use
+  - pytest not yet run — may have regressions from this session's changes
+
+questions:
+  - Do any existing tests reference MemoryError by name (grep showed none, but verify)?
+  - Does the nova_fade test_nova_fade.py test the drift-test or dj-video endpoints directly?
+
+decisions:
+  - stub_policy: "All stub endpoints return HTTP 501 Not Implemented instead of fake success codes"
+  - memory_error_rename: "MemoryError → LibraryError to stop shadowing Python built-in OOM exception"
+  - scene_caps: "40/60 (professional/cinematic) are correct per beat_sync.py comments — CLAUDE.md was wrong"
+  - thread_safety: "Double-checked locking pattern used for all module-level singletons (config, vram, analyzer)"
+  - normalize_lufs_rename: "Skipped — too many external references in tests and YAML config"
+
+findings:
+  - split_brain_root_cause: "video.py and nova_fade.py used TaskManager() with no db_path (default relative path), while audio.py used absolute path — two different SQLite files"
+  - chromadb_cosine: "ChromaDB cosine distance range is [0,2] not [0,1] — formula must be (2.0-dist)/2.0"
+  - energy_level_scale: "librosa RMS is ~0.001-0.08 raw; stored value must be 0-10 for ChromaDB BPM/energy queries to work"
+  - transition_engine_bug: "getattr(backend, 'name', lambda: '')() — if name is a string, calling () raises TypeError"
+  - rrf_k_value: "60 is the standard RRF literature value; promoted to _RRF_K module constant"
+
+worked:
+  - Layer review skill chain (layer1 → layer2a/2b/2c/2d parallel → layer5 → fix by priority)
+  - replace_all=true for renaming class names across a single file
+  - Reading files before editing (even after compaction, targeted offset/limit reads work)
+
+failed:
+  - Context compaction lost layer1-planning output details (run layer6-verification next session to close the loop)
+
+next:
+  - Run: python -m pytest backend/tests/unit/ -q (verify no regressions from this session)
+  - Run: python -m pytest backend/tests/unit/test_nova_fade.py -q (check stub 501 changes)
+  - Wire CogVideoX into animation_workflow.py as Workflow B (replace AnimateDiff block)
+  - Remove Ken Burns code (_create_slideshow_from_images, _ken_burns_frames)
+  - Fix scene LoRAs: rename checkpoint_1875 files to final .safetensors in config/loras.yaml
+  - Add PEXELS_API_KEY to ~/.claude/.env and run tools/collect_island_girl_footage.sh
+  - Run layer6-verification on the Critical/P1 fixes if desired
+
+files:
+  created: []
+  modified:
+    - Beat_Studio/CLAUDE.md
+    - backend/routers/audio.py
+    - backend/routers/video.py
+    - backend/routers/mashup.py
+    - backend/routers/lora.py
+    - backend/routers/nova_fade.py
+    - backend/routers/system.py
+    - backend/services/audio/analyzer.py
+    - backend/services/audio/processing.py
+    - backend/services/video/assembler.py
+    - backend/services/video/encoder.py
+    - backend/services/video/beat_sync.py
+    - backend/services/video/transition_engine.py
+    - backend/services/mashup/analyst.py
+    - backend/services/mashup/engineer.py
+    - backend/services/mashup/memory.py
+    - backend/services/lora/downloader.py
+    - backend/services/lora/registry.py
+    - backend/services/shared/task_manager.py
+    - backend/services/shared/config.py
+    - backend/services/shared/vram_manager.py
+    - backend/tests/unit/test_task_manager.py

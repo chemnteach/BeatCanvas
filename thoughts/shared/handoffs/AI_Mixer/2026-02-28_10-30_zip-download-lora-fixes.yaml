@@ -1,0 +1,62 @@
+---
+session: AI_Mixer
+date: 2026-02-28
+status: complete
+outcome: SUCCEEDED
+---
+
+goal: Fix test regressions, energy normalization, LoRA auto-selection, CUDA OOM, add ZIP download
+now: Wire CivitAI search to /api/lora/recommend + /api/lora/download (no API key required)
+test: cd /home/craig/AI_Workspace/synterra/Beat_Studio && python -m pytest backend/tests/unit/test_storyboard_service.py backend/tests/unit/test_audio_analyzer.py -q
+
+done_this_session:
+  - task: "Fix 2 failing backend tests encoding old broken single-LoRA behaviour — assert_not_called() → assert_called_once_with([...], adapter_weights=[...])"
+    files: [backend/tests/unit/test_storyboard_service.py]
+  - task: "Fix energy always showing 100% — security review /0.1 divisor reverted to raw np.mean(rms)"
+    files: [backend/services/audio/analyzer.py]
+  - task: "Fix LoRA auto-selection only picking Rob — also match by descriptive tags (beach, bar, sunset, boat, etc.) skipping generic tags"
+    files: [frontend/src/components/VideoStudio.tsx]
+  - task: "Resolve CUDA illegal memory access crash — stale pytest process holding 11.5 GB VRAM; killed both processes, restarted uvicorn"
+    files: []
+  - task: "Add storyboard ZIP download — GET /api/video/storyboard/{id}/download returns ZIP with scene_01.png through scene_18.png"
+    files: [backend/routers/storyboard.py, frontend/src/components/StoryboardPreview.tsx]
+
+blockers: []
+
+questions:
+  - "Rob LoRA still not prominent in scenes — watercolor abstracts identity; test with cinematic/realistic style"
+  - "All LoRAs (Rob + 5 scene) applied to every scene — per-scene LoRA assignment would improve relevance"
+  - "Double style prefix: VideoStudio sends style-prefixed positive_prompt; storyboard service prepends again"
+
+decisions:
+  - zip_uses_approved_or_latest: "ZIP download prefers approved_version per scene, falls back to latest version — user can curate before downloading"
+  - tag_skip_list: "Skip generic tags (scene, style, character, identity, local, dj) when matching LoRAs to prompts — only descriptive tags used"
+
+findings:
+  - cuda_oom_root_cause: "Background pytest process holding 11.5 GB GPU VRAM from session start — never completed; killed PID 740689 + stale uvicorn worker PID 731481"
+  - zip_confirmed_18_files: "curl + zipfile.ZipFile verification confirmed scene_01.png through scene_18.png in ZIP"
+  - lora_trigger_vs_tag: "Character LoRAs work via trigger token (rob_char in prompts); scene LoRAs need tag matching (beach_bar_ext never appears naturally)"
+  - energy_raw_rms_range: "Real music RMS runs 0.05–0.35; modern mastered tracks hit 0.1+ mean RMS, so /0.1 divisor saturated all to 100%"
+
+worked:
+  - "nvidia-smi --query-compute-apps to identify which PIDs held VRAM"
+  - "curl + python -c zipfile to verify ZIP contents without a browser"
+  - "Descriptive tag matching for scene LoRAs (beach, bar, sunset, boat, bonfire, tiki)"
+
+failed: []
+
+next:
+  - Wire CivitAI public API to POST /api/lora/recommend (no key required for search)
+  - Wire POST /api/lora/download to stream .safetensors → output/loras/ → append loras.yaml
+  - Consider per-scene LoRA assignment — only apply relevant LoRAs per scene
+  - Fix double style prefix: send raw scene description as positive_prompt from VideoStudio
+  - Test Rob character LoRA with cinematic/realistic style (not watercolor)
+
+files:
+  created: []
+  modified:
+    - backend/tests/unit/test_storyboard_service.py
+    - backend/services/audio/analyzer.py
+    - frontend/src/components/VideoStudio.tsx
+    - backend/routers/storyboard.py
+    - frontend/src/components/StoryboardPreview.tsx

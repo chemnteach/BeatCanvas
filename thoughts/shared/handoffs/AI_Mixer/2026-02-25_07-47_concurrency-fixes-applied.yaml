@@ -1,0 +1,70 @@
+---
+session: AI_Mixer
+date: 2026-02-25
+status: complete
+outcome: SUCCEEDED
+---
+
+goal: All concurrency fixes applied (Critical+P1+P2) — 424 tests green
+now: Run layer3d-error-handling-specialist, then wire CogVideoX as Workflow B
+test: cd /home/craig/AI_Workspace/synterra/Beat_Studio && python -m pytest backend/tests/unit/ -q
+
+done_this_session:
+  - task: Lifted LoRARegistry singleton to service layer via get_registry() — shared across all routers
+    files: [backend/services/lora/registry.py]
+  - task: Updated lora.py to use shared get_registry() service singleton
+    files: [backend/routers/lora.py]
+  - task: CRITICAL fixed — added threading.Lock to _get_vram_manager() in nova_fade.py
+    files: [backend/routers/nova_fade.py]
+  - task: P1 fixed — _run_train_lora now uses get_registry() shared singleton (no more stale lora status)
+    files: [backend/routers/nova_fade.py]
+  - task: Added threading.Lock to _get_task_manager() in nova_fade.py
+    files: [backend/routers/nova_fade.py]
+  - task: P1 fixed — added threading.Lock to _get_library() and _get_task_manager() in mashup.py
+    files: [backend/routers/mashup.py]
+  - task: P2 fixed — added threading.Lock to all 4 singletons in video.py
+    files: [backend/routers/video.py]
+  - task: P2 fixed — added threading.Lock to _get_task_manager() in tasks.py
+    files: [backend/routers/tasks.py]
+  - task: P2 fixed — replaced float elapsed accumulation with time.monotonic() deadline in WebSocket handler
+    files: [backend/routers/tasks.py]
+  - task: Ran pytest — 424 passed, 0 failed
+    files: []
+
+blockers:
+  - Scene LoRA .safetensors still missing (beach-sunset, bonfire-beach, tiki-bar-interior)
+  - PEXELS_API_KEY needed in ~/.claude/.env before running footage collector
+  - CogVideoX-5b model download required (~15GB)
+
+questions: []
+
+decisions:
+  - registry_singleton_location: "Moved to service layer (services/lora/registry.py) so lora.py and nova_fade.py share one instance — avoids cross-router imports and fixes stale cache"
+  - double_checked_locking: "Applied uniformly to all module-level singletons — matches existing audio.py/config.py pattern"
+
+findings:
+  - service_layer_singleton: "get_registry() in the service module is cleaner than cross-router imports; both routers call get_registry(path, base) and get the same cached instance"
+  - ws_monotonic: "time.monotonic() + deadline avoids float drift across 7200 sleep iterations over 1-hour WebSocket sessions"
+
+worked:
+  - Reading registry.py to confirm in-memory caching before deciding on fix approach
+  - Service-layer singleton pattern for shared state across multiple routers
+
+failed: []
+
+next:
+  - Run layer3d-error-handling-specialist
+  - Wire CogVideoX into animation_workflow.py as Workflow B (replace AnimateDiff block)
+  - Remove Ken Burns code (_create_slideshow_from_images, _ken_burns_frames)
+  - Fix scene LoRAs: rename checkpoint_1875 files to final .safetensors in config/loras.yaml
+  - Add PEXELS_API_KEY to ~/.claude/.env and run tools/collect_island_girl_footage.sh
+
+files:
+  created: []
+  modified:
+    - backend/services/lora/registry.py
+    - backend/routers/lora.py
+    - backend/routers/nova_fade.py
+    - backend/routers/mashup.py
+    - backend/routers/video.py
+    - backend/routers/tasks.py

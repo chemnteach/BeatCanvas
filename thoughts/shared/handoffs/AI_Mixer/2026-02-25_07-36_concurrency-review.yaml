@@ -1,0 +1,52 @@
+---
+session: AI_Mixer
+date: 2026-02-25
+status: complete
+outcome: SUCCEEDED
+---
+
+goal: layer3e concurrency review — 1 Critical, 3 P1, 2 P2 findings identified, not yet fixed
+now: Fix Critical + P1 concurrency issues, then run layer3d-error-handling-specialist
+test: cd /home/craig/AI_Workspace/synterra/Beat_Studio && python -m pytest backend/tests/unit/ -q
+
+done_this_session:
+  - task: Ran layer3e-concurrency-specialist review across all backend files with shared state
+    files: []
+
+blockers:
+  - Concurrency fixes not yet applied — Critical issue blocks production concurrent GPU use
+
+questions:
+  - Should the fix to _run_train_lora use lora.py's _get_registry() directly, or export it as a public function?
+
+decisions:
+  - review_only: "Ran review without applying fixes — user chose to ledger first"
+
+findings:
+  - critical_vram_singleton: "_get_vram_manager() in nova_fade.py has no lock — two concurrent background tasks (generate-canonical, train-lora) create separate VRAMManager instances, losing cross-instance GPU coordination → OOM"
+  - p1_stale_lora_cache: "_run_train_lora creates a fresh LoRARegistry() instead of the module singleton — after training, GET /lora/list still shows status=missing until server restart"
+  - p1_chromadb_double_init: "_get_library() in mashup.py has no lock — two concurrent ingest requests at cold start can double-initialize ChromaDB PersistentClient against same directory"
+  - p1_registry_no_lock: "_get_registry() in lora.py has no lock — low risk (YAML-only) but inconsistent with established pattern"
+  - p2_five_unlocked_singletons: "_get_task_manager() (tasks.py), _get_beat_sync/_get_model_router/_get_cost_estimator/_get_task_manager (video.py) all lack double-checked locking — harmless for TaskManager (SQLite WAL), wasteful for others"
+  - p2_ws_float_drift: "tasks.py WebSocket uses elapsed += 0.5 accumulation; use time.monotonic() for timeout check instead"
+  - good_patterns: "audio.py _get_analyzer(), config.py get_config(), VRAMManager._lock instance ops, assembler UUID concat — all correct"
+
+worked:
+  - Grep for 'global _' across all router files to quickly identify all unprotected singletons
+  - Reading files with offset/limit to bypass TLDR hook
+
+failed: []
+
+next:
+  - CRITICAL: Add threading.Lock to _get_vram_manager() in nova_fade.py (same pattern as audio.py _get_analyzer)
+  - P1: Fix _run_train_lora to use lora.py module singleton instead of creating new LoRARegistry
+  - P1: Add threading.Lock to _get_library() in mashup.py
+  - P1: Add threading.Lock to _get_registry() in lora.py
+  - P2: Add locks to 5 remaining unlocked singletons (tasks.py, video.py×4)
+  - P2: Replace elapsed accumulation with time.monotonic() in tasks.py WebSocket
+  - After fixes: run layer3d-error-handling-specialist
+  - Then: wire CogVideoX into animation_workflow.py as Workflow B
+
+files:
+  created: []
+  modified: []

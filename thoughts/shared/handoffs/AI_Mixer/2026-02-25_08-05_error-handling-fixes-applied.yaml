@@ -1,0 +1,67 @@
+---
+session: AI_Mixer
+date: 2026-02-25
+status: complete
+outcome: SUCCEEDED
+---
+
+goal: All error handling fixes applied (P1+P2) — 424 tests green, pushed fc76976
+now: Wire CogVideoX into animation_workflow.py as Workflow B (replace AnimateDiff block)
+test: cd /home/craig/AI_Workspace/synterra/Beat_Studio && python -m pytest backend/tests/unit/ -q
+
+done_this_session:
+  - task: Ran layer3d-error-handling-specialist — produced Critical/P1/P2 findings report
+    files: []
+  - task: P1 fixed — yt-dlp outtmpl changed to %(id)s to avoid filename sanitization mismatch; raise DownloadError if file absent
+    files: [backend/services/mashup/ingestion.py]
+  - task: P1 fixed — implemented retry loop in ingest_youtube_url (max_retries=3, backoff 1s/2s); was dead code
+    files: [backend/services/mashup/ingestion.py]
+  - task: P1 fixed — added logger.warning before animation style fallback to cinematic in both locations
+    files: [backend/routers/video.py]
+  - task: P2 fixed — added logger.debug to all 3 backend probe except blocks in /backends endpoint
+    files: [backend/routers/video.py]
+  - task: P2 fixed — VRAM cleanup now logs warning instead of silent pass
+    files: [backend/routers/nova_fade.py]
+  - task: P2 fixed — tempo_stability fallback now logs debug before returning 0.5
+    files: [backend/services/audio/analysis.py]
+  - task: Ran pytest — 424 passed, 0 failed
+    files: []
+  - task: Pushed to GitHub — commit fc76976
+    files: []
+
+blockers:
+  - Scene LoRA .safetensors still missing (beach-sunset, bonfire-beach, tiki-bar-interior)
+  - PEXELS_API_KEY needed in ~/.claude/.env before running footage collector
+  - CogVideoX-5b model download required (~15GB)
+
+questions: []
+
+decisions:
+  - ytdlp_fix_approach: "Changed outtmpl from %(title)s to %(id)s — YouTube video IDs are always URL-safe alphanumeric, so yt-dlp never sanitizes them; derived song_id from title as before but downloaded path is now predictable"
+  - retry_implementation: "Simple for-loop with time.sleep; acceptable in FastAPI BackgroundTasks (runs in Starlette threadpool not event loop)"
+  - p2_normalize_lufs_skipped: "processing.py normalize_lufs already logs warning and returns original — no change needed, P2 was acceptable as-is"
+
+findings:
+  - no_critical_error_handling: "Background worker pattern (outer except Exception → logger.exception + tm.fail_task) applied correctly everywhere"
+  - yt_dlp_root_cause: "%(title)s in outtmpl causes mismatch because yt-dlp sanitizes on-disk names but info['title'] is raw; %(id)s is guaranteed safe"
+
+worked:
+  - replace_all=true for the two duplicate style fallback blocks in video.py — edited both in one call
+
+failed: []
+
+next:
+  - Wire CogVideoX into animation_workflow.py as Workflow B (replace AnimateDiff block)
+  - Remove Ken Burns code (_create_slideshow_from_images, _ken_burns_frames)
+  - Fix scene LoRAs: rename checkpoint_1875 files to final .safetensors in config/loras.yaml
+  - Add PEXELS_API_KEY to ~/.claude/.env and run tools/collect_island_girl_footage.sh
+  - Consider layer3c-testability-specialist (optional, from layer1 plan)
+
+files:
+  created:
+    - thoughts/shared/handoffs/AI_Mixer/2026-02-25_08-05_error-handling-fixes-applied.yaml
+  modified:
+    - backend/services/mashup/ingestion.py
+    - backend/routers/video.py
+    - backend/routers/nova_fade.py
+    - backend/services/audio/analysis.py

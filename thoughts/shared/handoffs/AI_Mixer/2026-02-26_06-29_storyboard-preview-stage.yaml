@@ -1,0 +1,74 @@
+---
+session: AI_Mixer
+date: 2026-02-26
+status: complete
+outcome: SUCCEEDED
+---
+
+goal: Storyboard Image Preview Stage — full TDD implementation, all 5 phases complete
+now: Wire CivitAI search to /api/lora/recommend + /api/lora/download (tech debt)
+test: cd /home/craig/AI_Workspace/synterra/Beat_Studio && python -m pytest backend/tests/unit/test_storyboard_state.py backend/tests/unit/test_storyboard_service.py backend/tests/unit/test_storyboard_router.py -q
+
+done_this_session:
+  - task: "Phase 0 — types.py (VersionEntry, StoryboardScene, StoryboardState, SceneInput) + state.py (JSON-backed store, version eviction at 5)"
+    files: [backend/services/storyboard/__init__.py, backend/services/storyboard/types.py, backend/services/storyboard/state.py, backend/tests/unit/test_storyboard_state.py]
+  - task: "Phase 1 — StoryboardService: SDXL pipeline, LoRA loading, generate_all_scenes, generate_single_scene, approve (18+32 tests)"
+    files: [backend/services/storyboard/service.py, backend/tests/unit/test_storyboard_service.py]
+  - task: "Phase 2 — storyboard router: 5 endpoints wired with BackgroundTasks + TaskManager (38 tests)"
+    files: [backend/routers/storyboard.py, backend/tests/unit/test_storyboard_router.py, backend/main.py]
+  - task: "Phase 3 — frontend: StoryboardPreview component, storyboard types, VideoStudio stage insertion"
+    files: [frontend/src/components/StoryboardPreview.tsx, frontend/src/types/index.ts, frontend/src/components/VideoStudio.tsx]
+  - task: "Phase 4 — LoRA trigger tokens injected into storyboard prompts (matches ScenePromptGenerator behaviour)"
+    files: [backend/services/storyboard/service.py]
+  - task: "Phase 5 — keyboard navigation (← →) + optimistic version placeholder in StoryboardPreview"
+    files: [frontend/src/components/StoryboardPreview.tsx]
+  - task: "Bonus — LoRA card CSS (lora-card, lora-info, lora-type, trigger, status) was missing from index.css"
+    files: [frontend/src/index.css]
+  - task: "Bonus — auto pre-select LoRAs when entering lora stage by scanning prompt text for trigger tokens"
+    files: [frontend/src/components/VideoStudio.tsx]
+
+blockers: []
+
+questions: []
+
+decisions:
+  - all_loras_are_sdxl: "All 12 LoRAs confirmed sdxl_1.0 via safetensors metadata + tensor key analysis (10 transformer blocks)"
+  - sdxl_always_for_storyboard: "Storyboard always uses stabilityai/stable-diffusion-xl-base-1.0 regardless of animation_styles.yaml base_checkpoint (which is SD 1.5 for AnimateDiff)"
+  - trigger_tokens_prepended: "Storyboard service now prepends trigger tokens to every prompt — trigger_prefix + style.prefix + scene.positive_prompt"
+  - lora_preselection: "Frontend scans editedPrompts for trigger token substrings on transition to lora stage; non-fatal if API fails"
+  - civitai_search_deferred: "/api/lora/recommend downloadable and /api/lora/download are 501 stubs — deferred to tech debt"
+
+findings:
+  - caplog_flaky_in_large_suite: "caplog fails to capture module-level logger warnings when 474+ tests run together; fixed by patching logger directly with unittest.mock.patch"
+  - background_tasks_sync_in_testclient: "FastAPI TestClient runs BackgroundTasks synchronously — mock assertions valid immediately after client.post()"
+  - lora_trigger_missing_from_storyboard: "_load_loras loaded weights but never returned trigger tokens; prompts lacked activation signal"
+
+worked:
+  - TDD for all backend phases (tests written first, then implementation)
+  - monkeypatch _get_service() and _get_task_manager() for router tests — clean isolation
+  - device='cpu' parameter on StoryboardService for GPU-free unit tests
+
+failed: []
+
+next:
+  - Wire CivitAI public API to POST /api/lora/recommend (no key required for search)
+  - Wire POST /api/lora/download to stream .safetensors from URL → output/loras/ → append loras.yaml
+  - Consider per-scene LoRA assignment (ScenePlan.lora_names already has the slot)
+  - Test storyboard generation end-to-end with a real audio file
+
+files:
+  created:
+    - backend/services/storyboard/__init__.py
+    - backend/services/storyboard/types.py
+    - backend/services/storyboard/state.py
+    - backend/services/storyboard/service.py
+    - backend/routers/storyboard.py
+    - backend/tests/unit/test_storyboard_state.py
+    - backend/tests/unit/test_storyboard_service.py
+    - backend/tests/unit/test_storyboard_router.py
+    - frontend/src/components/StoryboardPreview.tsx
+  modified:
+    - backend/main.py
+    - frontend/src/components/VideoStudio.tsx
+    - frontend/src/types/index.ts
+    - frontend/src/index.css

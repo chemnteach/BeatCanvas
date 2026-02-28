@@ -1,0 +1,72 @@
+---
+session: AI_Mixer
+date: 2026-02-25
+status: complete
+outcome: SUCCEEDED
+---
+
+goal: layer3d error handling review complete — 2 P1 bugs found (yt-dlp path, style fallback)
+now: Fix P1-1 (yt-dlp filename mismatch in ingestion.py) and P1-3 (silent style fallback in video.py)
+test: cd /home/craig/AI_Workspace/synterra/Beat_Studio && python -m pytest backend/tests/unit/ -q
+
+done_this_session:
+  - task: Ran layer6-verification — found missing UUID check on POST /analyze, applied fix
+    files: [backend/routers/audio.py]
+  - task: Ran layer3e-concurrency-specialist — found Critical (VRAMManager no lock) + P1/P2 singletons
+    files: []
+  - task: Applied all concurrency fixes (Critical+P1+P2) — 424 tests green
+    files: [backend/services/lora/registry.py, backend/routers/lora.py, backend/routers/nova_fade.py, backend/routers/mashup.py, backend/routers/video.py, backend/routers/tasks.py]
+  - task: Pushed concurrency fixes to GitHub (commit c36a4f7)
+    files: []
+  - task: Ran layer3d-error-handling-specialist — produced full findings report
+    files: []
+
+blockers:
+  - Scene LoRA .safetensors still missing (beach-sunset, bonfire-beach, tiki-bar-interior)
+  - PEXELS_API_KEY needed in ~/.claude/.env before running footage collector
+  - CogVideoX-5b model download required (~15GB)
+
+questions: []
+
+decisions:
+  - registry_singleton_location: "Moved to service layer (services/lora/registry.py) so lora.py and nova_fade.py share one instance — avoids cross-router imports and fixes stale cache"
+  - double_checked_locking: "Applied uniformly to all module-level singletons — matches existing audio.py/config.py pattern"
+  - no_critical_error_handling: "Background worker pattern (outer except Exception → logger.exception + tm.fail_task) applied correctly everywhere — no Critical error handling gaps"
+
+findings:
+  - P1_ytdlp_path_mismatch: "ingestion.py:170-173 — yt-dlp sanitizes filenames on disk but video_title from info['title'] is unsanitized; if expected.exists() is False, rename() skipped, function returns path to non-existent file"
+  - P1_unused_max_retries: "ingestion.py:184 — max_retries=3 parameter is dead code; single attempt only; YouTube downloads are transient-failure-prone"
+  - P1_silent_style_fallback: "video.py:235-239 and video.py:482-485 — except Exception: animation_style = StyleMapper().get_style('cinematic') swallows style name and exception with no log"
+  - P2_normalize_lufs: "processing.py:167-170 — normalize_lufs logs warning and returns original; caller has no signal normalization was skipped"
+  - P2_backend_endpoint: "video.py:675-686 — three bare except Exception in /backends probe with no logging; add logger.debug"
+  - P2_tempo_stability: "analysis.py:~150 — silent fallback to 0.5; should log at DEBUG"
+  - correct_patterns: "All 4 router background workers use outer except + logger.exception + tm.fail_task — correct pattern throughout"
+
+worked:
+  - Reading files with offset/limit to bypass TLDR hook
+  - Service-layer singleton for LoRARegistry shared across routers
+  - Double-checked locking pattern applied uniformly
+
+failed: []
+
+next:
+  - Fix P1-1: ingestion.py yt-dlp filename sanitization — glob for actual file instead of constructing expected path
+  - Fix P1-3: video.py:235-239 and :482-485 — add logger.warning(style, exc) before fallback
+  - Decide: implement retry in ingest_youtube_url or remove max_retries param (P1-2)
+  - Wire CogVideoX into animation_workflow.py as Workflow B (replace AnimateDiff block)
+  - Remove Ken Burns code (_create_slideshow_from_images, _ken_burns_frames)
+  - Fix scene LoRAs: rename checkpoint_1875 files to final .safetensors in config/loras.yaml
+  - Add PEXELS_API_KEY to ~/.claude/.env and run tools/collect_island_girl_footage.sh
+  - Consider layer3c-testability-specialist (optional, from layer1 plan)
+
+files:
+  created:
+    - thoughts/shared/handoffs/AI_Mixer/2026-02-25_07-53_error-handling-review-complete.yaml
+  modified:
+    - backend/services/lora/registry.py
+    - backend/routers/lora.py
+    - backend/routers/nova_fade.py
+    - backend/routers/mashup.py
+    - backend/routers/video.py
+    - backend/routers/tasks.py
+    - backend/routers/audio.py

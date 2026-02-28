@@ -1,0 +1,67 @@
+---
+session: AI_Mixer
+date: 2026-02-25
+status: complete
+outcome: SUCCEEDED
+---
+
+goal: CogVideoX wired as Workflow B in animation_workflow.py — pushed 0dbbf9e
+now: Fix scene LoRAs (rename checkpoint_1875 to final .safetensors in config/loras.yaml)
+test: cd /home/craig/AI_Workspace/synterra/beatcanvas/backend && python -c "from src.animation.animation_workflow import AnimationWorkflow, AnimationProjectConfig; c = AnimationProjectConfig(project_name='test', audio_path='test.mp3', use_cogvideox=True); print(c.use_cogvideox)"
+
+done_this_session:
+  - task: Applied all P1+P2 error handling fixes in Beat_Studio — pushed fc76976
+    files: [backend/services/mashup/ingestion.py, backend/routers/video.py, backend/routers/nova_fade.py, backend/services/audio/analysis.py]
+  - task: Added use_cogvideox flag to AnimationProjectConfig
+    files: [beatcanvas/backend/src/animation/animation_workflow.py]
+  - task: Added _generate_cogvideox_clips() — generates 48-frame clips per scene, writes mp4 with cv2.VideoWriter at 8fps
+    files: [beatcanvas/backend/src/animation/animation_workflow.py]
+  - task: Added _concatenate_clips() — joins clips via moviepy concatenate_videoclips
+    files: [beatcanvas/backend/src/animation/animation_workflow.py]
+  - task: Wired Workflow B branch in run_workflow() — use_cogvideox skips SDXL+rotoscope
+    files: [beatcanvas/backend/src/animation/animation_workflow.py]
+  - task: Removed _create_slideshow_from_images() and _ken_burns_frames() — Ken Burns code gone
+    files: [beatcanvas/backend/src/animation/animation_workflow.py]
+  - task: Pushed to GitHub — beatcanvas commit 0dbbf9e
+    files: []
+
+blockers:
+  - Scene LoRA .safetensors still missing (beach-sunset, bonfire-beach, tiki-bar-interior)
+  - PEXELS_API_KEY needed in ~/.claude/.env before running footage collector
+  - CogVideoX-5b model download required (~15GB) — is_available() returns False until downloaded
+
+questions:
+  - Does Beat_Studio CogVideoXBackend stub also need to be implemented (full pipeline vs stub)?
+
+decisions:
+  - workflow_b_skips_rotoscope: "CogVideoX already produces temporally consistent video — no need for rotoscope post-processing; SDXL path keeps rotoscope for artistic styles"
+  - ken_burns_removed: "Ken Burns was a fallback for when rotoscope failed; Workflow B is the new reliable fallback — no need to maintain dead code"
+  - cogvideox_fps: "8fps for generation (CogVideoX native), cv2.VideoWriter writes at 8fps; moviepy handles any speed mismatch in assembly"
+
+findings:
+  - cogvideox_generator_already_works: "beatcanvas/backend/src/cinematography/cogvideox_generator.py fully implemented and tested — cogvideox_test.mp4 and cogvideox_minimal_test.mp4 exist on disk"
+  - beat_studio_stub: "Beat_Studio backend/services/video/backends/cogvideox.py is a separate stub with is_available()=False — different codebase, separate task"
+  - vram_management: "_generate_cogvideox_clips() calls cogvideox_generator.kill() after all clips done to free 14-16GB before assembly step"
+
+worked:
+  - replace_all=true trick for editing both style fallback blocks in video.py simultaneously
+  - Verifying with python -c import check before committing
+
+failed: []
+
+next:
+  - Fix scene LoRAs: rename checkpoint_1875 files to final .safetensors in config/loras.yaml
+  - Add PEXELS_API_KEY to ~/.claude/.env and run tools/collect_island_girl_footage.sh
+  - Download CogVideoX-5b model (~15GB) so Workflow B can actually run
+  - Optionally implement Beat_Studio CogVideoXBackend stub (separate from BeatCanvas)
+  - Consider layer3c-testability-specialist (optional, from layer1 plan)
+
+files:
+  created:
+    - thoughts/shared/handoffs/AI_Mixer/2026-02-25_16-13_cogvideox-workflow-b-wired.yaml
+  modified:
+    - beatcanvas/backend/src/animation/animation_workflow.py
+    - Beat_Studio/backend/services/mashup/ingestion.py
+    - Beat_Studio/backend/routers/video.py
+    - Beat_Studio/backend/routers/nova_fade.py
+    - Beat_Studio/backend/services/audio/analysis.py
